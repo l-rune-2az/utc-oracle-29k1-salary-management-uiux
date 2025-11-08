@@ -1,0 +1,433 @@
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import { Employee } from '@/types/models';
+import { FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
+import { format } from 'date-fns';
+import PageHeader from '@/components/PageHeader';
+import DataTable, { Column } from '@/components/DataTable';
+import SearchFilter from '@/components/SearchFilter';
+import TablePagination from '@/components/TablePagination';
+import Modal from '@/components/Modal';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import EmployeeForm from '@/components/forms/EmployeeForm';
+
+export default function EmployeesPage() {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
+  
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [employees, searchFilters]);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await fetch('/api/employees');
+      const data = await response.json();
+      setEmployees(data);
+      setFilteredEmployees(data);
+    } catch (error) {
+      console.error('Lỗi khi tải danh sách nhân viên:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...employees];
+
+    if (searchFilters.fullName) {
+      const searchTerm = searchFilters.fullName.toLowerCase();
+      filtered = filtered.filter((emp) =>
+        emp.fullName?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (searchFilters.empId) {
+      const searchTerm = searchFilters.empId.toLowerCase();
+      filtered = filtered.filter((emp) =>
+        emp.empId?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (searchFilters.status) {
+      filtered = filtered.filter((emp) => emp.status === searchFilters.status);
+    }
+
+    setFilteredEmployees(filtered);
+    setCurrentPage(1);
+  };
+
+  const handleCreate = () => {
+    setSelectedEmployee(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEdit = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsEditModalOpen(true);
+  };
+
+  const handleView = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDelete = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleSubmit = async (data: Employee) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/employees';
+      const method = selectedEmployee ? 'PUT' : 'POST';
+      
+      // TODO: Replace with actual API call when Oracle is connected
+      // const response = await fetch(url, {
+      //   method,
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(data),
+      // });
+      
+      // For now, just update local state
+      if (selectedEmployee) {
+        setEmployees((prev) =>
+          prev.map((emp) => (emp.empId === data.empId ? data : emp))
+        );
+      } else {
+        setEmployees((prev) => [...prev, data]);
+      }
+      
+      setIsCreateModalOpen(false);
+      setIsEditModalOpen(false);
+      setSelectedEmployee(null);
+    } catch (error) {
+      console.error('Lỗi khi lưu nhân viên:', error);
+      alert('Có lỗi xảy ra khi lưu nhân viên');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedEmployee) return;
+    
+    setFormLoading(true);
+    try {
+      // TODO: Replace with actual API call when Oracle is connected
+      // await fetch(`/api/employees/${selectedEmployee.empId}`, {
+      //   method: 'DELETE',
+      // });
+      
+      // For now, just update local state
+      setEmployees((prev) =>
+        prev.filter((emp) => emp.empId !== selectedEmployee.empId)
+      );
+      
+      setIsDeleteDialogOpen(false);
+      setSelectedEmployee(null);
+    } catch (error) {
+      console.error('Lỗi khi xóa nhân viên:', error);
+      alert('Có lỗi xảy ra khi xóa nhân viên');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const formatDate = (date?: Date | string) => {
+    if (!date) return '-';
+    try {
+      return format(new Date(date), 'dd/MM/yyyy');
+    } catch {
+      return '-';
+    }
+  };
+
+  const getGenderText = (gender?: number) => {
+    if (gender === 1) return 'Nam';
+    if (gender === 0) return 'Nữ';
+    return '-';
+  };
+
+  const getStatusBadge = (status?: string) => {
+    if (status === 'ACTIVE') {
+      return (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '4px 12px',
+          borderRadius: 'var(--radius-full)',
+          fontSize: 'var(--font-size-xs)',
+          fontWeight: 'var(--font-weight-semibold)',
+          background: '#dcfce7',
+          color: '#166534',
+        }}>
+          Đang làm việc
+        </span>
+      );
+    }
+    return (
+      <span style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '4px 12px',
+        borderRadius: 'var(--radius-full)',
+        fontSize: 'var(--font-size-xs)',
+        fontWeight: 'var(--font-weight-semibold)',
+        background: '#fee2e2',
+        color: '#991b1b',
+      }}>
+        Nghỉ việc
+      </span>
+    );
+  };
+
+  const searchFields = [
+    { name: 'fullName', label: 'Họ Tên', type: 'text' as const, placeholder: 'Nhập họ tên...', width: 'medium' as const },
+    { name: 'empId', label: 'Mã NV', type: 'text' as const, placeholder: 'Nhập mã NV...', width: 'medium' as const },
+    {
+      name: 'status',
+      label: 'Trạng Thái',
+      type: 'select' as const,
+      width: 'select' as const,
+      options: [
+        { value: 'ACTIVE', label: 'Hoạt động' },
+        { value: 'INACTIVE', label: 'Nghỉ việc' },
+      ],
+    },
+  ];
+
+  const columns: Column<Employee>[] = [
+    {
+      key: 'empId',
+      label: 'Mã NV',
+      width: '100px',
+    },
+    {
+      key: 'fullName',
+      label: 'Họ Tên',
+    },
+    {
+      key: 'birthDate',
+      label: 'Ngày Sinh',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'gender',
+      label: 'Giới Tính',
+      align: 'center',
+      render: (value) => getGenderText(value),
+    },
+    {
+      key: 'joinDate',
+      label: 'Ngày Vào Làm',
+      render: (value) => formatDate(value),
+    },
+    {
+      key: 'status',
+      label: 'Trạng Thái',
+      align: 'center',
+      render: (value) => getStatusBadge(value),
+    },
+    {
+      key: 'actions',
+      label: 'Thao Tác',
+      align: 'center',
+      width: '140px',
+      render: (_, row) => (
+        <div className="action-buttons-container">
+          <button
+            className="action-btn action-btn--view"
+            title="Xem chi tiết"
+            onClick={() => handleView(row)}
+          >
+            <FiEye />
+          </button>
+          <button
+            className="action-btn action-btn--edit"
+            title="Chỉnh sửa"
+            onClick={() => handleEdit(row)}
+          >
+            <FiEdit2 />
+          </button>
+          <button
+            className="action-btn action-btn--delete"
+            title="Xóa"
+            onClick={() => handleDelete(row)}
+          >
+            <FiTrash2 />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const paginatedData = useMemo(() => {
+    return filteredEmployees.slice(
+      (currentPage - 1) * itemsPerPage,
+      currentPage * itemsPerPage
+    );
+  }, [filteredEmployees, currentPage, itemsPerPage]);
+
+  const handleSearch = (values: Record<string, any>) => {
+    setSearchFilters(values);
+  };
+
+  const handleReset = () => {
+    setSearchFilters({});
+  };
+
+  return (
+    <>
+      <PageHeader
+        title="Quản Lý Nhân Viên"
+        actions={
+          <button className="btn btn-primary" onClick={handleCreate}>
+            <FiPlus style={{ marginRight: 'var(--space-2)' }} />
+            Thêm Nhân Viên
+          </button>
+        }
+      />
+
+      <SearchFilter
+        fields={searchFields}
+        onSearch={handleSearch}
+        onReset={handleReset}
+        realTime={true}
+      />
+
+      <DataTable
+        columns={columns}
+        data={paginatedData}
+        loading={loading}
+      />
+
+      {filteredEmployees.length > 0 && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredEmployees.length / itemsPerPage)}
+          totalItems={filteredEmployees.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={setCurrentPage}
+        />
+      )}
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        title="Thêm Nhân Viên Mới"
+        size="lg"
+      >
+        <EmployeeForm
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            setSelectedEmployee(null);
+          }}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        title="Chỉnh Sửa Nhân Viên"
+        size="lg"
+      >
+        {selectedEmployee && (
+          <EmployeeForm
+            employee={selectedEmployee}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setSelectedEmployee(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
+
+      {/* View Modal */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedEmployee(null);
+        }}
+        title="Chi Tiết Nhân Viên"
+        size="md"
+      >
+        {selectedEmployee && (
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <div>
+              <strong>Mã Nhân Viên:</strong> {selectedEmployee.empId}
+            </div>
+            <div>
+              <strong>Họ Tên:</strong> {selectedEmployee.fullName}
+            </div>
+            <div>
+              <strong>Ngày Sinh:</strong> {formatDate(selectedEmployee.birthDate)}
+            </div>
+            <div>
+              <strong>Giới Tính:</strong> {getGenderText(selectedEmployee.gender)}
+            </div>
+            <div>
+              <strong>Phòng Ban:</strong> {selectedEmployee.deptId || '-'}
+            </div>
+            <div>
+              <strong>Chức Vụ:</strong> {selectedEmployee.positionId || '-'}
+            </div>
+            <div>
+              <strong>Ngày Vào Làm:</strong> {formatDate(selectedEmployee.joinDate)}
+            </div>
+            <div>
+              <strong>Trạng Thái:</strong> {getStatusBadge(selectedEmployee.status)}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedEmployee(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Xác Nhận Xóa"
+        message={`Bạn có chắc chắn muốn xóa nhân viên "${selectedEmployee?.fullName}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        cancelText="Hủy"
+        type="danger"
+      />
+    </>
+  );
+}
