@@ -8,6 +8,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable, { Column } from '@/components/DataTable';
 import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
+import Modal from '@/components/Modal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function RewardsPage() {
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -15,6 +17,15 @@ export default function RewardsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
+  
+  // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -57,6 +68,74 @@ export default function RewardsPage() {
 
     setFilteredRewards(filtered);
     setCurrentPage(1);
+  };
+
+  const handleCreate = () => {
+    setSelectedReward(null);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEdit = (reward: Reward) => {
+    setSelectedReward(reward);
+    setIsEditModalOpen(true);
+  };
+
+  const handleView = (reward: Reward) => {
+    setSelectedReward(reward);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDelete = (reward: Reward) => {
+    setSelectedReward(reward);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleSubmit = async (data: Reward) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/rewards';
+      const method = selectedReward ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi lưu thưởng');
+      
+      await fetchRewards();
+      setIsCreateModalOpen(false);
+      setIsEditModalOpen(false);
+      setSelectedReward(null);
+    } catch (error) {
+      console.error('Lỗi khi lưu thưởng:', error);
+      alert('Có lỗi xảy ra khi lưu thưởng');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedReward) return;
+    
+    setFormLoading(true);
+    try {
+      const response = await fetch(`/api/rewards/${selectedReward.rewardId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi xóa thưởng');
+      
+      await fetchRewards();
+      setIsDeleteDialogOpen(false);
+      setSelectedReward(null);
+    } catch (error) {
+      console.error('Lỗi khi xóa thưởng:', error);
+      alert('Có lỗi xảy ra khi xóa thưởng');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const formatDate = (date?: Date | string) => {
@@ -124,13 +203,25 @@ export default function RewardsPage() {
       width: '140px',
       render: (_, row) => (
         <div className="action-buttons-container">
-          <button className="action-btn action-btn--view" title="Xem chi tiết">
+          <button
+            className="action-btn action-btn--view"
+            title="Xem chi tiết"
+            onClick={() => handleView(row)}
+          >
             <FiEye />
           </button>
-          <button className="action-btn action-btn--edit" title="Chỉnh sửa">
+          <button
+            className="action-btn action-btn--edit"
+            title="Chỉnh sửa"
+            onClick={() => handleEdit(row)}
+          >
             <FiEdit2 />
           </button>
-          <button className="action-btn action-btn--delete" title="Xóa">
+          <button
+            className="action-btn action-btn--delete"
+            title="Xóa"
+            onClick={() => handleDelete(row)}
+          >
             <FiTrash2 />
           </button>
         </div>
@@ -148,7 +239,7 @@ export default function RewardsPage() {
       <PageHeader
         title="Quản Lý Thưởng"
         actions={
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={handleCreate}>
             <FiPlus style={{ marginRight: 'var(--space-2)' }} />
             Thêm Thưởng
           </button>
@@ -173,6 +264,58 @@ export default function RewardsPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* View Modal */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedReward(null);
+        }}
+        title="Chi Tiết Thưởng"
+        size="md"
+      >
+        {selectedReward && (
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <div>
+              <strong>Mã Thưởng:</strong> {selectedReward.rewardId}
+            </div>
+            <div>
+              <strong>Mã NV/Phòng Ban:</strong> {selectedReward.empId || selectedReward.deptId || '-'}
+            </div>
+            <div>
+              <strong>Loại Thưởng:</strong> {selectedReward.rewardType || '-'}
+            </div>
+            <div>
+              <strong>Ngày Thưởng:</strong> {formatDate(selectedReward.rewardDate)}
+            </div>
+            <div>
+              <strong>Số Tiền:</strong> {formatCurrency(selectedReward.amount)}
+            </div>
+            <div>
+              <strong>Lý Do:</strong> {selectedReward.description || '-'}
+            </div>
+            <div>
+              <strong>Người Phê Duyệt:</strong> {selectedReward.approvedBy || '-'}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedReward(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Xác Nhận Xóa"
+        message={`Bạn có chắc chắn muốn xóa thưởng "${selectedReward?.rewardId}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        cancelText="Hủy"
+        type="danger"
+      />
     </>
   );
 }

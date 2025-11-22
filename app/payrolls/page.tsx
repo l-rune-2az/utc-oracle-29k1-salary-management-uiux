@@ -7,6 +7,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable, { Column } from '@/components/DataTable';
 import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
+import Modal from '@/components/Modal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function PayrollsPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
@@ -14,6 +16,13 @@ export default function PayrollsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
+  
+  // Modal states
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -53,6 +62,46 @@ export default function PayrollsPage() {
 
     setFilteredPayrolls(filtered);
     setCurrentPage(1);
+  };
+
+  const handleCreate = () => {
+    alert('Chức năng tạo bảng lương sẽ được triển khai sau');
+  };
+
+  const handleEdit = (payroll: Payroll) => {
+    alert('Chức năng chỉnh sửa bảng lương sẽ được triển khai sau');
+  };
+
+  const handleView = (payroll: Payroll) => {
+    setSelectedPayroll(payroll);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDelete = (payroll: Payroll) => {
+    setSelectedPayroll(payroll);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedPayroll) return;
+    
+    setFormLoading(true);
+    try {
+      const response = await fetch(`/api/payrolls/${selectedPayroll.payrollId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi xóa bảng lương');
+      
+      await fetchPayrolls();
+      setIsDeleteDialogOpen(false);
+      setSelectedPayroll(null);
+    } catch (error) {
+      console.error('Lỗi khi xóa bảng lương:', error);
+      alert('Có lỗi xảy ra khi xóa bảng lương');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -184,13 +233,25 @@ export default function PayrollsPage() {
       width: '140px',
       render: (_, row) => (
         <div className="action-buttons-container">
-          <button className="action-btn action-btn--view" title="Xem chi tiết">
+          <button
+            className="action-btn action-btn--view"
+            title="Xem chi tiết"
+            onClick={() => handleView(row)}
+          >
             <FiEye />
           </button>
-          <button className="action-btn action-btn--edit" title="Chỉnh sửa">
+          <button
+            className="action-btn action-btn--edit"
+            title="Chỉnh sửa"
+            onClick={() => handleEdit(row)}
+          >
             <FiEdit2 />
           </button>
-          <button className="action-btn action-btn--delete" title="Xóa">
+          <button
+            className="action-btn action-btn--delete"
+            title="Xóa"
+            onClick={() => handleDelete(row)}
+          >
             <FiTrash2 />
           </button>
         </div>
@@ -208,7 +269,7 @@ export default function PayrollsPage() {
       <PageHeader
         title="Quản Lý Bảng Lương"
         actions={
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={handleCreate}>
             <FiPlus style={{ marginRight: 'var(--space-2)' }} />
             Tạo Bảng Lương
           </button>
@@ -237,6 +298,67 @@ export default function PayrollsPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* View Modal */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedPayroll(null);
+        }}
+        title="Chi Tiết Bảng Lương"
+        size="lg"
+      >
+        {selectedPayroll && (
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <div>
+              <strong>Mã Bảng Lương:</strong> {selectedPayroll.payrollId}
+            </div>
+            <div>
+              <strong>Mã NV:</strong> {selectedPayroll.empId}
+            </div>
+            <div>
+              <strong>Tháng/Năm:</strong> {selectedPayroll.monthNum}/{selectedPayroll.yearNum}
+            </div>
+            <div>
+              <strong>Lương Cơ Bản:</strong> {formatCurrency(selectedPayroll.basicSalary)}
+            </div>
+            <div>
+              <strong>Phụ Cấp:</strong> {formatCurrency(selectedPayroll.allowance)}
+            </div>
+            <div>
+              <strong>Thưởng:</strong> {formatCurrency(selectedPayroll.rewardAmount)}
+            </div>
+            <div>
+              <strong>Phạt:</strong> {formatCurrency(selectedPayroll.penaltyAmount)}
+            </div>
+            <div>
+              <strong>Lương OT:</strong> {formatCurrency(selectedPayroll.otSalary)}
+            </div>
+            <div>
+              <strong>Tổng Lương:</strong> {formatCurrency(selectedPayroll.totalSalary)}
+            </div>
+            <div>
+              <strong>Trạng Thái:</strong> {getStatusBadge(selectedPayroll.status)}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedPayroll(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Xác Nhận Xóa"
+        message={`Bạn có chắc chắn muốn xóa bảng lương "${selectedPayroll?.payrollId}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        cancelText="Hủy"
+        type="danger"
+      />
     </>
   );
 }

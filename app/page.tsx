@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { FiUsers, FiDollarSign, FiAward, FiAlertCircle } from 'react-icons/fi';
+import { apiFetch } from '@/lib/apiClient';
+import type { Employee, Payroll, Reward, Penalty } from '@/types/models';
 
 interface DashboardStats {
   totalEmployees: number;
@@ -22,10 +24,10 @@ export default function Home() {
     const fetchStats = async () => {
       try {
         const [employees, payrolls, rewards, penalties] = await Promise.all([
-          fetch('/api/employees').then((res) => res.json()),
-          fetch('/api/payrolls').then((res) => res.json()),
-          fetch('/api/rewards').then((res) => res.json()),
-          fetch('/api/penalties').then((res) => res.json()),
+          apiFetch<Employee[]>('/api/employees'),
+          apiFetch<Payroll[]>('/api/payrolls'),
+          apiFetch<Reward[]>('/api/rewards'),
+          apiFetch<Penalty[]>('/api/penalties'),
         ]);
 
         setStats({
@@ -68,6 +70,7 @@ export default function Home() {
       color: 'var(--error-500)',
     },
   ];
+
 
   return (
     <>

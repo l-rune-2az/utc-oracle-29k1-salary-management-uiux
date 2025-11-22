@@ -8,6 +8,8 @@ import PageHeader from '@/components/PageHeader';
 import DataTable, { Column } from '@/components/DataTable';
 import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
+import Modal from '@/components/Modal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<SalaryPayment[]>([]);
@@ -15,6 +17,13 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
+  
+  // Modal states
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<SalaryPayment | null>(null);
+  const [formLoading, setFormLoading] = useState(false);
+  
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -50,6 +59,46 @@ export default function PaymentsPage() {
 
     setFilteredPayments(filtered);
     setCurrentPage(1);
+  };
+
+  const handleCreate = () => {
+    alert('Chức năng tạo phiếu chi sẽ được triển khai sau');
+  };
+
+  const handleEdit = (payment: SalaryPayment) => {
+    alert('Chức năng chỉnh sửa phiếu chi sẽ được triển khai sau');
+  };
+
+  const handleView = (payment: SalaryPayment) => {
+    setSelectedPayment(payment);
+    setIsViewModalOpen(true);
+  };
+
+  const handleDelete = (payment: SalaryPayment) => {
+    setSelectedPayment(payment);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedPayment) return;
+    
+    setFormLoading(true);
+    try {
+      const response = await fetch(`/api/payments/${selectedPayment.paymentId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi xóa phiếu chi');
+      
+      await fetchPayments();
+      setIsDeleteDialogOpen(false);
+      setSelectedPayment(null);
+    } catch (error) {
+      console.error('Lỗi khi xóa phiếu chi:', error);
+      alert('Có lỗi xảy ra khi xóa phiếu chi');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const formatDate = (date?: Date | string) => {
@@ -96,13 +145,25 @@ export default function PaymentsPage() {
       width: '140px',
       render: (_, row) => (
         <div className="action-buttons-container">
-          <button className="action-btn action-btn--view" title="Xem chi tiết">
+          <button
+            className="action-btn action-btn--view"
+            title="Xem chi tiết"
+            onClick={() => handleView(row)}
+          >
             <FiEye />
           </button>
-          <button className="action-btn action-btn--edit" title="Chỉnh sửa">
+          <button
+            className="action-btn action-btn--edit"
+            title="Chỉnh sửa"
+            onClick={() => handleEdit(row)}
+          >
             <FiEdit2 />
           </button>
-          <button className="action-btn action-btn--delete" title="Xóa">
+          <button
+            className="action-btn action-btn--delete"
+            title="Xóa"
+            onClick={() => handleDelete(row)}
+          >
             <FiTrash2 />
           </button>
         </div>
@@ -120,7 +181,7 @@ export default function PaymentsPage() {
       <PageHeader
         title="Quản Lý Phiếu Chi Lương"
         actions={
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={handleCreate}>
             <FiPlus style={{ marginRight: 'var(--space-2)' }} />
             Tạo Phiếu Chi
           </button>
@@ -145,6 +206,52 @@ export default function PaymentsPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* View Modal */}
+      <Modal
+        isOpen={isViewModalOpen}
+        onClose={() => {
+          setIsViewModalOpen(false);
+          setSelectedPayment(null);
+        }}
+        title="Chi Tiết Phiếu Chi"
+        size="md"
+      >
+        {selectedPayment && (
+          <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
+            <div>
+              <strong>Mã Phiếu Chi:</strong> {selectedPayment.paymentId}
+            </div>
+            <div>
+              <strong>Mã Bảng Lương:</strong> {selectedPayment.payrollId}
+            </div>
+            <div>
+              <strong>Ngày Thanh Toán:</strong> {formatDate(selectedPayment.paymentDate)}
+            </div>
+            <div>
+              <strong>Người Phê Duyệt:</strong> {selectedPayment.approvedBy || '-'}
+            </div>
+            <div>
+              <strong>Ghi Chú:</strong> {selectedPayment.note || '-'}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isDeleteDialogOpen}
+        onClose={() => {
+          setIsDeleteDialogOpen(false);
+          setSelectedPayment(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        title="Xác Nhận Xóa"
+        message={`Bạn có chắc chắn muốn xóa phiếu chi "${selectedPayment?.paymentId}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        cancelText="Hủy"
+        type="danger"
+      />
     </>
   );
 }

@@ -1,43 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { mockRewards } from '@/data/mockData';
 import { Reward } from '@/types/models';
+import { OracleService } from '@/services/oracleService';
+import { serverConfig } from '@/config/serverConfig';
+import { isOracleConfigured } from '@/lib/oracle';
 
-// TODO: Thay thế mock data bằng Oracle database calls
+const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // TODO: Thay bằng query Oracle
+    if (shouldUseOracle()) {
+      const rewards = await OracleService.select<Reward>(
+        `SELECT
+            ID AS "rewardId",
+            EMP_ID AS "empId",
+            DEPT_ID AS "deptId",
+            REWARD_TYPE AS "rewardType",
+            REWARD_DATE AS "rewardDate",
+            AMOUNT AS "amount",
+            DESCRIPTION AS "description",
+            APPROVED_BY AS "approvedBy"
+         FROM REWARD
+         ORDER BY REWARD_DATE DESC NULLS LAST`,
+      );
+      return NextResponse.json(rewards);
+    }
+
     return NextResponse.json(mockRewards);
   } catch (error) {
+    console.error('Lỗi khi lấy danh sách thưởng', error);
     return NextResponse.json(
       { error: 'Lỗi khi lấy danh sách thưởng' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const data: Reward = await request.json();
-    
-    // TODO: Thay bằng insert Oracle
+    const payload: Reward = await request.json();
+    if (!payload.amount) {
+      return NextResponse.json(
+        { error: 'Số tiền thưởng là bắt buộc' },
+        { status: 400 },
+      );
+    }
+
     const newReward: Reward = {
-      rewardId: data.rewardId,
-      empId: data.empId,
-      deptId: data.deptId,
-      rewardType: data.rewardType,
-      rewardDate: data.rewardDate,
-      amount: data.amount,
-      description: data.description,
-      approvedBy: data.approvedBy,
+      rewardId: payload.rewardId || randomUUID(),
+      empId: payload.empId,
+      deptId: payload.deptId,
+      rewardType: payload.rewardType,
+      rewardDate: payload.rewardDate,
+      amount: payload.amount,
+      description: payload.description,
+      approvedBy: payload.approvedBy,
     };
-    
-    mockRewards.push(newReward);
+
+    if (shouldUseOracle()) {
+      await OracleService.insert(
+        `INSERT INTO REWARD (
+            ID, EMP_ID, DEPT_ID, REWARD_TYPE, REWARD_DATE,
+            AMOUNT, DESCRIPTION, APPROVED_BY, CREATED_BY, CREATED_AT
+         ) VALUES (
+            :id, :empId, :deptId, :rewardType, :rewardDate,
+            :amount, :description, :approvedBy, 'system', SYSTIMESTAMP
+         )`,
+        {
+          id: newReward.rewardId,
+          empId: newReward.empId ?? null,
+          deptId: newReward.deptId ?? null,
+          rewardType: newReward.rewardType ?? null,
+          rewardDate: newReward.rewardDate ? new Date(newReward.rewardDate) : null,
+          amount: newReward.amount,
+          description: newReward.description ?? null,
+          approvedBy: newReward.approvedBy ?? null,
+        },
+      );
+    } else {
+      mockRewards.push(newReward);
+    }
+
     return NextResponse.json(newReward, { status: 201 });
   } catch (error) {
+    console.error('Lỗi khi tạo thưởng mới', error);
     return NextResponse.json(
       { error: 'Lỗi khi tạo thưởng mới' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
