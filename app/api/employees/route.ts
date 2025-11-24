@@ -10,8 +10,10 @@ const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
 export async function GET() {
   try {
+    let employees: Employee[] = [];
+    
     if (shouldUseOracle()) {
-      const employees = await OracleService.select<Employee>(
+      const result = await OracleService.select<Employee>(
         `SELECT
             CODE AS "empId",
             FULL_NAME AS "fullName",
@@ -22,18 +24,19 @@ export async function GET() {
             TRUNC(JOIN_DATE) AS "joinDate",
             STATUS AS "status"
          FROM EMPLOYEE
-         ORDER BY FULL_NAME`,
+         ORDER BY CREATED_AT DESC, FULL_NAME`,
       );
-      return NextResponse.json(employees);
+      // Đảm bảo result là array
+      employees = Array.isArray(result) ? result : [];
+    } else {
+      employees = Array.isArray(mockEmployees) ? mockEmployees : [];
     }
 
-    return NextResponse.json(mockEmployees);
+    return NextResponse.json(employees);
   } catch (error) {
     console.error('Lỗi khi lấy danh sách nhân viên', error);
-    return NextResponse.json(
-      { error: 'Lỗi khi lấy danh sách nhân viên' },
-      { status: 500 },
-    );
+    // Trả về array rỗng thay vì object lỗi
+    return NextResponse.json([], { status: 500 });
   }
 }
 
@@ -88,6 +91,123 @@ export async function POST(request: NextRequest) {
     console.error('Lỗi khi tạo nhân viên mới', error);
     return NextResponse.json(
       { error: 'Lỗi khi tạo nhân viên mới' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Employee = await request.json();
+    if (!payload.empId || !payload.fullName) {
+      return NextResponse.json(
+        { error: 'Thiếu mã nhân viên hoặc họ tên' },
+        { status: 400 },
+      );
+    }
+
+    const updatedEmployee: Employee = {
+      empId: payload.empId.trim(),
+      fullName: payload.fullName.trim(),
+      birthDate: payload.birthDate,
+      gender: payload.gender,
+      deptId: payload.deptId,
+      positionId: payload.positionId,
+      joinDate: payload.joinDate,
+      status: payload.status || 'ACTIVE',
+    };
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.update(
+        `UPDATE EMPLOYEE
+         SET FULL_NAME = :fullName,
+             BIRTH_DATE = :birthDate,
+             GENDER = :gender,
+             DEPT_ID = :deptId,
+             POSITION_ID = :positionId,
+             JOIN_DATE = :joinDate,
+             STATUS = :status,
+             UPDATED_BY = 'system',
+             UPDATED_AT = SYSTIMESTAMP
+         WHERE CODE = :code`,
+        {
+          fullName: updatedEmployee.fullName,
+          birthDate: updatedEmployee.birthDate ? new Date(updatedEmployee.birthDate) : null,
+          gender: updatedEmployee.gender ?? null,
+          deptId: updatedEmployee.deptId ?? null,
+          positionId: updatedEmployee.positionId ?? null,
+          joinDate: updatedEmployee.joinDate ? new Date(updatedEmployee.joinDate) : null,
+          status: updatedEmployee.status,
+          code: updatedEmployee.empId,
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy nhân viên để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockEmployees.findIndex(
+        (emp) => emp.empId === updatedEmployee.empId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy nhân viên để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockEmployees[index] = updatedEmployee;
+    }
+
+    return NextResponse.json(updatedEmployee);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật nhân viên', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật nhân viên' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const empId = body.empId;
+    
+    if (!empId) {
+      return NextResponse.json({ error: 'Thiếu mã nhân viên' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        'DELETE FROM EMPLOYEE WHERE CODE = :code',
+        { code: empId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy nhân viên để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockEmployees.findIndex((emp) => emp.empId === empId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy nhân viên để xóa' },
+          { status: 404 },
+        );
+      }
+      mockEmployees.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa nhân viên', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa nhân viên' },
       { status: 500 },
     );
   }

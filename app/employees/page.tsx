@@ -41,16 +41,32 @@ export default function EmployeesPage() {
     try {
       const response = await fetch('/api/employees');
       const data = await response.json();
-      setEmployees(data);
-      setFilteredEmployees(data);
+      
+      // Đảm bảo data là array
+      if (Array.isArray(data)) {
+        setEmployees(data);
+        setFilteredEmployees(data);
+      } else {
+        console.error('API trả về dữ liệu không hợp lệ:', data);
+        setEmployees([]);
+        setFilteredEmployees([]);
+      }
     } catch (error) {
       console.error('Lỗi khi tải danh sách nhân viên:', error);
+      setEmployees([]);
+      setFilteredEmployees([]);
     } finally {
       setLoading(false);
     }
   };
 
   const applyFilters = () => {
+    // Đảm bảo employees là array
+    if (!Array.isArray(employees)) {
+      setFilteredEmployees([]);
+      return;
+    }
+
     let filtered = [...employees];
 
     if (searchFilters.fullName) {
@@ -101,28 +117,26 @@ export default function EmployeesPage() {
       const url = '/api/employees';
       const method = selectedEmployee ? 'PUT' : 'POST';
       
-      // TODO: Replace with actual API call when Oracle is connected
-      // const response = await fetch(url, {
-      //   method,
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(data),
-      // });
-      
-      // For now, just update local state
-      if (selectedEmployee) {
-        setEmployees((prev) =>
-          prev.map((emp) => (emp.empId === data.empId ? data : emp))
-        );
-      } else {
-        setEmployees((prev) => [...prev, data]);
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu nhân viên');
       }
+
+      // Reload danh sách sau khi lưu thành công
+      await fetchEmployees();
       
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedEmployee(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi lưu nhân viên:', error);
-      alert('Có lỗi xảy ra khi lưu nhân viên');
+      alert(error.message || 'Có lỗi xảy ra khi lưu nhân viên');
     } finally {
       setFormLoading(false);
     }
@@ -133,21 +147,25 @@ export default function EmployeesPage() {
     
     setFormLoading(true);
     try {
-      // TODO: Replace with actual API call when Oracle is connected
-      // await fetch(`/api/employees/${selectedEmployee.empId}`, {
-      //   method: 'DELETE',
-      // });
-      
-      // For now, just update local state
-      setEmployees((prev) =>
-        prev.filter((emp) => emp.empId !== selectedEmployee.empId)
-      );
+      const response = await fetch('/api/employees', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ empId: selectedEmployee.empId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi xóa nhân viên');
+      }
+
+      // Reload danh sách sau khi xóa thành công
+      await fetchEmployees();
       
       setIsDeleteDialogOpen(false);
       setSelectedEmployee(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa nhân viên:', error);
-      alert('Có lỗi xảy ra khi xóa nhân viên');
+      alert(error.message || 'Có lỗi xảy ra khi xóa nhân viên');
     } finally {
       setFormLoading(false);
     }
@@ -282,6 +300,10 @@ export default function EmployeesPage() {
   ];
 
   const paginatedData = useMemo(() => {
+    // Đảm bảo filteredEmployees là array trước khi slice
+    if (!Array.isArray(filteredEmployees)) {
+      return [];
+    }
     return filteredEmployees.slice(
       (currentPage - 1) * itemsPerPage,
       currentPage * itemsPerPage

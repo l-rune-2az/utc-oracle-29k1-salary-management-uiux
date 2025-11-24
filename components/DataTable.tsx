@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { FiInbox } from 'react-icons/fi';
 
 export interface Column<T = any> {
   key: string;
@@ -89,9 +90,23 @@ export default function DataTable<T = any>({
                 <td
                   className="data-table__cell"
                   colSpan={columns.length}
-                  style={{ textAlign: 'center', padding: 'var(--space-8)' }}
+                  style={{ 
+                    textAlign: 'center', 
+                    padding: 'var(--space-12)',
+                    color: 'var(--gray-500)'
+                  }}
                 >
-                  Không có dữ liệu
+                  <div style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    alignItems: 'center', 
+                    gap: 'var(--space-3)' 
+                  }}>
+                    <FiInbox size={48} style={{ opacity: 0.5 }} />
+                    <span style={{ fontSize: 'var(--font-size-sm)' }}>
+                      Không có dữ liệu
+                    </span>
+                  </div>
                 </td>
               </tr>
             ) : (

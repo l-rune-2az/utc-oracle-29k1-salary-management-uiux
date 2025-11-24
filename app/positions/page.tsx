@@ -86,20 +86,29 @@ export default function PositionsPage() {
   const handleSubmit = async (data: Position) => {
     setFormLoading(true);
     try {
-      if (selectedPosition) {
-        setPositions((prev) =>
-          prev.map((pos) => (pos.positionId === data.positionId ? data : pos))
-        );
-      } else {
-        setPositions((prev) => [...prev, data]);
+      const url = '/api/positions';
+      const method = selectedPosition ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu chức vụ');
       }
+
+      // Reload danh sách sau khi lưu thành công
+      await fetchPositions();
       
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedPosition(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi lưu chức vụ:', error);
-      alert('Có lỗi xảy ra khi lưu chức vụ');
+      alert(error.message || 'Có lỗi xảy ra khi lưu chức vụ');
     } finally {
       setFormLoading(false);
     }
@@ -110,15 +119,25 @@ export default function PositionsPage() {
     
     setFormLoading(true);
     try {
-      setPositions((prev) =>
-        prev.filter((pos) => pos.positionId !== selectedPosition.positionId)
-      );
+      const response = await fetch('/api/positions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positionId: selectedPosition.positionId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi xóa chức vụ');
+      }
+
+      // Reload danh sách sau khi xóa thành công
+      await fetchPositions();
       
       setIsDeleteDialogOpen(false);
       setSelectedPosition(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa chức vụ:', error);
-      alert('Có lỗi xảy ra khi xóa chức vụ');
+      alert(error.message || 'Có lỗi xảy ra khi xóa chức vụ');
     } finally {
       setFormLoading(false);
     }

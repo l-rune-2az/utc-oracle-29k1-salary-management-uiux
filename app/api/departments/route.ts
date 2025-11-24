@@ -17,7 +17,7 @@ export async function GET() {
             NAME AS "deptName",
             LOCATION AS "location"
          FROM DEPARTMENT
-         ORDER BY NAME`,
+         ORDER BY CREATED_AT DESC, NAME`,
       );
       return NextResponse.json(departments);
     }

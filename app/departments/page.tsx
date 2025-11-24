@@ -93,20 +93,29 @@ export default function DepartmentsPage() {
   const handleSubmit = async (data: Department) => {
     setFormLoading(true);
     try {
-      if (selectedDepartment) {
-        setDepartments((prev) =>
-          prev.map((dept) => (dept.deptId === data.deptId ? data : dept))
-        );
-      } else {
-        setDepartments((prev) => [...prev, data]);
+      const url = '/api/departments';
+      const method = selectedDepartment ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu phòng ban');
       }
+
+      // Reload danh sách sau khi lưu thành công
+      await fetchDepartments();
       
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedDepartment(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi lưu phòng ban:', error);
-      alert('Có lỗi xảy ra khi lưu phòng ban');
+      alert(error.message || 'Có lỗi xảy ra khi lưu phòng ban');
     } finally {
       setFormLoading(false);
     }
@@ -117,15 +126,25 @@ export default function DepartmentsPage() {
     
     setFormLoading(true);
     try {
-      setDepartments((prev) =>
-        prev.filter((dept) => dept.deptId !== selectedDepartment.deptId)
-      );
+      const response = await fetch('/api/departments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deptId: selectedDepartment.deptId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Có lỗi xảy ra khi xóa phòng ban');
+      }
+
+      // Reload danh sách sau khi xóa thành công
+      await fetchDepartments();
       
       setIsDeleteDialogOpen(false);
       setSelectedDepartment(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi xóa phòng ban:', error);
-      alert('Có lỗi xảy ra khi xóa phòng ban');
+      alert(error.message || 'Có lỗi xảy ra khi xóa phòng ban');
     } finally {
       setFormLoading(false);
     }
