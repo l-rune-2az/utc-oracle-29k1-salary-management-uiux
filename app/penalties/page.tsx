@@ -131,9 +131,10 @@ export default function PenaltiesPage() {
 
   const columns: Column<Penalty>[] = [
     {
-      key: 'penaltyId',
+      key: 'penaltyCode',
       label: 'Mã Phạt',
       width: '120px',
+      render: (value, row) => value || row.penaltyId,
     },
     {
       key: 'empId',
@@ -248,7 +249,13 @@ export default function PenaltiesPage() {
         {selectedPenalty && (
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             <div>
-              <strong>Mã Phạt:</strong> {selectedPenalty.penaltyId}
+              <strong>Mã Phạt:</strong>{' '}
+              {selectedPenalty.penaltyCode || selectedPenalty.penaltyId}
+              {selectedPenalty.penaltyCode && (
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)' }}>
+                  ID hệ thống: {selectedPenalty.penaltyId}
+                </div>
+              )}
             </div>
             <div>
               <strong>Mã NV:</strong> {selectedPenalty.empId}
@@ -278,7 +285,9 @@ export default function PenaltiesPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa phạt "${selectedPenalty?.penaltyId}"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa phạt "${
+          selectedPenalty?.penaltyCode || selectedPenalty?.penaltyId
+        }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

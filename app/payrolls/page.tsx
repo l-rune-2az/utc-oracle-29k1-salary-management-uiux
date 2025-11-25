@@ -160,9 +160,10 @@ export default function PayrollsPage() {
 
   const columns: Column<Payroll>[] = [
     {
-      key: 'payrollId',
+      key: 'payrollCode',
       label: 'Mã BL',
-      width: '100px',
+      width: '140px',
+      render: (value, row) => value || row.payrollId,
     },
     {
       key: 'empId',
@@ -312,7 +313,13 @@ export default function PayrollsPage() {
         {selectedPayroll && (
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             <div>
-              <strong>Mã Bảng Lương:</strong> {selectedPayroll.payrollId}
+              <strong>Mã Bảng Lương:</strong>{' '}
+              {selectedPayroll.payrollCode || selectedPayroll.payrollId}
+              {selectedPayroll.payrollCode && (
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)' }}>
+                  ID hệ thống: {selectedPayroll.payrollId}
+                </div>
+              )}
             </div>
             <div>
               <strong>Mã NV:</strong> {selectedPayroll.empId}
@@ -354,7 +361,9 @@ export default function PayrollsPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa bảng lương "${selectedPayroll?.payrollId}"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa bảng lương "${
+          selectedPayroll?.payrollCode || selectedPayroll?.payrollId
+        }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

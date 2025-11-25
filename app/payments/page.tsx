@@ -116,14 +116,16 @@ export default function PaymentsPage() {
 
   const columns: Column<SalaryPayment>[] = [
     {
-      key: 'paymentId',
+      key: 'paymentCode',
       label: 'Mã Phiếu Chi',
-      width: '150px',
+      width: '160px',
+      render: (value, row) => value || row.paymentId,
     },
     {
-      key: 'payrollId',
+      key: 'payrollCode',
       label: 'Mã Bảng Lương',
-      width: '150px',
+      width: '160px',
+      render: (value, row) => value || row.payrollId,
     },
     {
       key: 'paymentDate',
@@ -220,10 +222,17 @@ export default function PaymentsPage() {
         {selectedPayment && (
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             <div>
-              <strong>Mã Phiếu Chi:</strong> {selectedPayment.paymentId}
+              <strong>Mã Phiếu Chi:</strong>{' '}
+              {selectedPayment.paymentCode || selectedPayment.paymentId}
+              {selectedPayment.paymentCode && (
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)' }}>
+                  ID hệ thống: {selectedPayment.paymentId}
+                </div>
+              )}
             </div>
             <div>
-              <strong>Mã Bảng Lương:</strong> {selectedPayment.payrollId}
+              <strong>Mã Bảng Lương:</strong>{' '}
+              {selectedPayment.payrollCode || selectedPayment.payrollId}
             </div>
             <div>
               <strong>Ngày Thanh Toán:</strong> {formatDate(selectedPayment.paymentDate)}
@@ -247,7 +256,9 @@ export default function PaymentsPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa phiếu chi "${selectedPayment?.paymentId}"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa phiếu chi "${
+          selectedPayment?.paymentCode || selectedPayment?.paymentId
+        }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

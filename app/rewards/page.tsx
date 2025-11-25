@@ -161,9 +161,10 @@ export default function RewardsPage() {
 
   const columns: Column<Reward>[] = [
     {
-      key: 'rewardId',
+      key: 'rewardCode',
       label: 'Mã Thưởng',
       width: '120px',
+      render: (value, row) => value || row.rewardId,
     },
     {
       key: 'empDept',
@@ -278,7 +279,13 @@ export default function RewardsPage() {
         {selectedReward && (
           <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
             <div>
-              <strong>Mã Thưởng:</strong> {selectedReward.rewardId}
+              <strong>Mã Thưởng:</strong>{' '}
+              {selectedReward.rewardCode || selectedReward.rewardId}
+              {selectedReward.rewardCode && (
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)' }}>
+                  ID hệ thống: {selectedReward.rewardId}
+                </div>
+              )}
             </div>
             <div>
               <strong>Mã NV/Phòng Ban:</strong> {selectedReward.empId || selectedReward.deptId || '-'}
@@ -311,7 +318,9 @@ export default function RewardsPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa thưởng "${selectedReward?.rewardId}"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa thưởng "${
+          selectedReward?.rewardCode || selectedReward?.rewardId
+        }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

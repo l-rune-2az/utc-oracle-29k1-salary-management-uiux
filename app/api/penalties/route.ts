@@ -8,24 +8,50 @@ import { isOracleConfigured } from '@/lib/oracle';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
+const formatDateCode = (value?: Date | string) => {
+  if (!value) return '00000000';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '00000000';
+  }
+  return parsed.toISOString().slice(0, 10).replace(/-/g, '');
+};
+
+const buildPenaltyCode = (penalty: Pick<Penalty, 'penaltyId' | 'penaltyDate'>) => {
+  const idSegment = String(penalty.penaltyId ?? '000000')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .padEnd(6, '0')
+    .slice(0, 6)
+    .toUpperCase();
+  return `PN-${formatDateCode(penalty.penaltyDate)}-${idSegment}`;
+};
+
 export async function GET() {
   try {
     if (shouldUseOracle()) {
       const penalties = await OracleService.select<Penalty>(
         `SELECT
-            ID AS "penaltyId",
-            EMP_ID AS "empId",
-            PENALTY_TYPE AS "penaltyType",
-            PENALTY_DATE AS "penaltyDate",
-            AMOUNT AS "amount",
-            REASON AS "reason"
-         FROM PENALTY
-         ORDER BY PENALTY_DATE DESC NULLS LAST`,
+            pn.ID AS "penaltyId",
+            'PN-' || NVL(TO_CHAR(pn.PENALTY_DATE, 'YYYYMMDD'), '00000000') || '-' ||
+              SUBSTR(pn.ID, 1, 6) AS "penaltyCode",
+            COALESCE(e.CODE, pn.EMP_ID) AS "empId",
+            pn.PENALTY_TYPE AS "penaltyType",
+            pn.PENALTY_DATE AS "penaltyDate",
+            pn.AMOUNT AS "amount",
+            pn.REASON AS "reason"
+         FROM PENALTY pn
+         LEFT JOIN EMPLOYEE e ON e.ID = pn.EMP_ID
+         ORDER BY pn.PENALTY_DATE DESC NULLS LAST`,
       );
       return NextResponse.json(penalties);
     }
 
-    return NextResponse.json(mockPenalties);
+    const mapped = mockPenalties.map((item) => ({
+      ...item,
+      penaltyCode: item.penaltyCode ?? buildPenaltyCode(item),
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error('Lỗi khi lấy danh sách phạt', error);
     return NextResponse.json(

@@ -52,9 +52,10 @@ export default function ContractsPage() {
 
     if (searchFilters.empId) {
       const searchTerm = searchFilters.empId.toLowerCase();
-      filtered = filtered.filter((contract) =>
-        contract.empId?.toLowerCase().includes(searchTerm)
-      );
+      filtered = filtered.filter((contract) => {
+        const code = contract.empCode ?? contract.empId;
+        return code?.toLowerCase().includes(searchTerm);
+      });
     }
 
     setFilteredContracts(filtered);
@@ -121,9 +122,10 @@ export default function ContractsPage() {
       width: '100px',
     },
     {
-      key: 'empId',
+      key: 'empCode',
       label: 'Mã NV',
       width: '100px',
+      render: (value, row) => value || row.empId,
     },
     {
       key: 'startDate',
@@ -229,7 +231,12 @@ export default function ContractsPage() {
               <strong>Mã Hợp Đồng:</strong> {selectedContract.contractId}
             </div>
             <div>
-              <strong>Mã NV:</strong> {selectedContract.empId}
+              <strong>Mã NV:</strong> {selectedContract.empCode || selectedContract.empId}
+              {selectedContract.empCode && (
+                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)' }}>
+                  ID hệ thống: {selectedContract.empId}
+                </div>
+              )}
             </div>
             <div>
               <strong>Ngày Bắt Đầu:</strong> {formatDate(selectedContract.startDate)}

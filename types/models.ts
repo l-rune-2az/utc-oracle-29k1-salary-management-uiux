@@ -32,6 +32,7 @@ export interface Employee {
 export interface Contract {
   contractId: string;
   empId: string;
+  empCode?: string;
   startDate: Date | string;
   endDate?: Date | string;
   salaryFactor?: number;
@@ -58,6 +59,7 @@ export interface Attendance {
 
 export interface Reward {
   rewardId: string;
+  rewardCode?: string;
   empId?: string;
   deptId?: string;
   rewardType?: string;
@@ -69,6 +71,7 @@ export interface Reward {
 
 export interface Penalty {
   penaltyId: string;
+  penaltyCode?: string;
   empId: string;
   penaltyType?: string;
   penaltyDate?: Date | string;
@@ -82,6 +85,7 @@ export interface Penalty {
 
 export interface Payroll {
   payrollId: string;
+  payrollCode?: string;
   empId: string;
   monthNum: number;
   yearNum: number;
@@ -96,7 +100,9 @@ export interface Payroll {
 
 export interface SalaryPayment {
   paymentId: string;
+  paymentCode?: string;
   payrollId: string;
+  payrollCode?: string;
   paymentDate?: Date | string;
   approvedBy?: string;
   note?: string;

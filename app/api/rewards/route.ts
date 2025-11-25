@@ -8,26 +8,53 @@ import { isOracleConfigured } from '@/lib/oracle';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
+const formatDateCode = (value?: Date | string) => {
+  if (!value) return '00000000';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return '00000000';
+  }
+  return parsed.toISOString().slice(0, 10).replace(/-/g, '');
+};
+
+const buildRewardCode = (reward: Pick<Reward, 'rewardId' | 'rewardDate'>) => {
+  const idSegment = String(reward.rewardId ?? '000000')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .padEnd(6, '0')
+    .slice(0, 6)
+    .toUpperCase();
+  return `RW-${formatDateCode(reward.rewardDate)}-${idSegment}`;
+};
+
 export async function GET() {
   try {
     if (shouldUseOracle()) {
       const rewards = await OracleService.select<Reward>(
         `SELECT
-            ID AS "rewardId",
-            EMP_ID AS "empId",
-            DEPT_ID AS "deptId",
-            REWARD_TYPE AS "rewardType",
-            REWARD_DATE AS "rewardDate",
-            AMOUNT AS "amount",
-            DESCRIPTION AS "description",
-            APPROVED_BY AS "approvedBy"
-         FROM REWARD
-         ORDER BY REWARD_DATE DESC NULLS LAST`,
+            r.ID AS "rewardId",
+            'RW-' || NVL(TO_CHAR(r.REWARD_DATE, 'YYYYMMDD'), '00000000') || '-' ||
+              SUBSTR(r.ID, 1, 6) AS "rewardCode",
+            COALESCE(e.CODE, r.EMP_ID) AS "empId",
+            COALESCE(d.CODE, r.DEPT_ID) AS "deptId",
+            r.REWARD_TYPE AS "rewardType",
+            r.REWARD_DATE AS "rewardDate",
+            r.AMOUNT AS "amount",
+            r.DESCRIPTION AS "description",
+            r.APPROVED_BY AS "approvedBy"
+         FROM REWARD r
+         LEFT JOIN EMPLOYEE e ON e.ID = r.EMP_ID
+         LEFT JOIN DEPARTMENT d ON d.ID = r.DEPT_ID
+         ORDER BY r.REWARD_DATE DESC NULLS LAST`,
       );
       return NextResponse.json(rewards);
     }
 
-    return NextResponse.json(mockRewards);
+    const mapped = mockRewards.map((item) => ({
+      ...item,
+      rewardCode: item.rewardCode ?? buildRewardCode(item),
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error('Lỗi khi lấy danh sách thưởng', error);
     return NextResponse.json(

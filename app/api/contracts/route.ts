@@ -30,18 +30,25 @@ export async function GET() {
         `SELECT
             c.CODE AS "contractId",
             c.EMP_ID AS "empId",
+            e.CODE AS "empCode",
             c.START_DATE AS "startDate",
             c.END_DATE AS "endDate",
             f.VALUE AS "salaryFactor",
             c.CONTRACT_TYPE AS "contractType"
          FROM CONTRACT c
+         LEFT JOIN EMPLOYEE e ON e.ID = c.EMP_ID
          LEFT JOIN SALARY_FACTOR_CONFIG f ON c.FACTOR_ID = f.ID
          ORDER BY c.START_DATE DESC`,
       );
       return NextResponse.json(contracts);
     }
 
-    return NextResponse.json(mockContracts);
+    const mapped = mockContracts.map((item) => ({
+      ...item,
+      empCode: item.empCode ?? item.empId,
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error('Lỗi khi lấy danh sách hợp đồng', error);
     return NextResponse.json(
