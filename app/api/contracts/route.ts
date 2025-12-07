@@ -5,6 +5,7 @@ import { Contract } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -14,10 +15,7 @@ const resolveFactorId = async (salaryFactor?: number) => {
   }
 
   const factorRecords = await OracleService.select<{ id: string }>(
-    `SELECT ID AS "id"
-     FROM SALARY_FACTOR_CONFIG
-     WHERE VALUE = :value
-     FETCH FIRST 1 ROWS ONLY`,
+    SQL_QUERIES.CONTRACT.SELECT_FACTOR_BY_VALUE,
     { value: salaryFactor },
   );
   return factorRecords[0]?.id ?? null;
@@ -27,16 +25,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const contracts = await OracleService.select<Contract>(
-        `SELECT
-            c.CODE AS "contractId",
-            c.EMP_ID AS "empId",
-            c.START_DATE AS "startDate",
-            c.END_DATE AS "endDate",
-            f.VALUE AS "salaryFactor",
-            c.CONTRACT_TYPE AS "contractType"
-         FROM CONTRACT c
-         LEFT JOIN SALARY_FACTOR_CONFIG f ON c.FACTOR_ID = f.ID
-         ORDER BY c.START_DATE DESC`,
+        SQL_QUERIES.CONTRACT.SELECT_ALL,
       );
       return NextResponse.json(contracts);
     }
@@ -73,17 +62,7 @@ export async function POST(request: NextRequest) {
     if (shouldUseOracle()) {
       const factorId = await resolveFactorId(newContract.salaryFactor);
       await OracleService.insert(
-        `INSERT INTO CONTRACT (
-            ID, CODE, EMP_ID, START_DATE, END_DATE,
-            SALARY_TYPE, BASE_SALARY, OFFER_SALARY,
-            FACTOR_ID, CONTRACT_TYPE, STATUS,
-            CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :code, :empId, :startDate, :endDate,
-            :salaryType, :baseSalary, :offerSalary,
-            :factorId, :contractType, 'ACTIVE',
-            'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.CONTRACT.INSERT,
         {
           id: randomUUID(),
           code: newContract.contractId,

@@ -4,6 +4,7 @@ import { Attendance } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -11,19 +12,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const attendanceSummary = await OracleService.select<Attendance>(
-        `SELECT
-            MIN(ID) AS "attendId",
-            EMP_ID AS "empId",
-            EXTRACT(MONTH FROM ATTENDANCE_DATE) AS "monthNum",
-            EXTRACT(YEAR FROM ATTENDANCE_DATE) AS "yearNum",
-            SUM(CASE WHEN IS_WORKING_DAY = 1 THEN 1 ELSE 0 END) AS "workDays",
-            SUM(CASE WHEN IS_WORKING_DAY = 0 THEN 1 ELSE 0 END) AS "leaveDays",
-            NVL(SUM(OT_HOURS), 0) AS "otHours"
-         FROM ATTENDANCE
-         GROUP BY EMP_ID,
-                  EXTRACT(YEAR FROM ATTENDANCE_DATE),
-                  EXTRACT(MONTH FROM ATTENDANCE_DATE)
-         ORDER BY "yearNum" DESC, "monthNum" DESC`,
+        SQL_QUERIES.ATTENDANCE.SELECT_SUMMARY,
       );
       return NextResponse.json(attendanceSummary);
     }

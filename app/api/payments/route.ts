@@ -4,6 +4,7 @@ import { SalaryPayment } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -11,14 +12,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const payments = await OracleService.select<SalaryPayment>(
-        `SELECT
-            ID AS "paymentId",
-            PAYROLL_ID AS "payrollId",
-            PAYMENT_DATE AS "paymentDate",
-            APPROVED_BY AS "approvedBy",
-            NOTE AS "note"
-         FROM SALARY_PAYMENT
-         ORDER BY PAYMENT_DATE DESC NULLS LAST`,
+        SQL_QUERIES.SALARY_PAYMENT.SELECT_ALL,
       );
       return NextResponse.json(payments);
     }

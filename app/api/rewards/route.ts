@@ -5,6 +5,7 @@ import { Reward } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -12,17 +13,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const rewards = await OracleService.select<Reward>(
-        `SELECT
-            ID AS "rewardId",
-            EMP_ID AS "empId",
-            DEPT_ID AS "deptId",
-            REWARD_TYPE AS "rewardType",
-            REWARD_DATE AS "rewardDate",
-            AMOUNT AS "amount",
-            DESCRIPTION AS "description",
-            APPROVED_BY AS "approvedBy"
-         FROM REWARD
-         ORDER BY REWARD_DATE DESC NULLS LAST`,
+        SQL_QUERIES.REWARD.SELECT_ALL,
       );
       return NextResponse.json(rewards);
     }
@@ -60,13 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO REWARD (
-            ID, EMP_ID, DEPT_ID, REWARD_TYPE, REWARD_DATE,
-            AMOUNT, DESCRIPTION, APPROVED_BY, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :empId, :deptId, :rewardType, :rewardDate,
-            :amount, :description, :approvedBy, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.REWARD.INSERT,
         {
           id: newReward.rewardId,
           empId: newReward.empId ?? null,

@@ -5,6 +5,7 @@ import { Penalty } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -12,15 +13,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const penalties = await OracleService.select<Penalty>(
-        `SELECT
-            ID AS "penaltyId",
-            EMP_ID AS "empId",
-            PENALTY_TYPE AS "penaltyType",
-            PENALTY_DATE AS "penaltyDate",
-            AMOUNT AS "amount",
-            REASON AS "reason"
-         FROM PENALTY
-         ORDER BY PENALTY_DATE DESC NULLS LAST`,
+        SQL_QUERIES.PENALTY.SELECT_ALL,
       );
       return NextResponse.json(penalties);
     }
@@ -56,13 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO PENALTY (
-            ID, EMP_ID, PENALTY_TYPE, PENALTY_DATE,
-            AMOUNT, REASON, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :empId, :penaltyType, :penaltyDate,
-            :amount, :reason, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.PENALTY.INSERT,
         {
           id: newPenalty.penaltyId,
           empId: newPenalty.empId,

@@ -5,6 +5,7 @@ import { Employee } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -12,17 +13,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const employees = await OracleService.select<Employee>(
-        `SELECT
-            CODE AS "empId",
-            FULL_NAME AS "fullName",
-            BIRTH_DATE AS "birthDate",
-            GENDER AS "gender",
-            DEPT_ID AS "deptId",
-            POSITION_ID AS "positionId",
-            TRUNC(JOIN_DATE) AS "joinDate",
-            STATUS AS "status"
-         FROM EMPLOYEE
-         ORDER BY FULL_NAME`,
+        SQL_QUERIES.EMPLOYEE.SELECT_ALL,
       );
       return NextResponse.json(employees);
     }
@@ -60,13 +51,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO EMPLOYEE (
-            ID, CODE, FULL_NAME, BIRTH_DATE, GENDER, DEPT_ID, POSITION_ID,
-            JOIN_DATE, STATUS, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :code, :fullName, :birthDate, :gender, :deptId, :positionId,
-            :joinDate, :status, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.EMPLOYEE.INSERT,
         {
           id: randomUUID(),
           code: newEmployee.empId,
