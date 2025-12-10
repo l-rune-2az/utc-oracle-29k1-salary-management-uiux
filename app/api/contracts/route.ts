@@ -90,3 +90,105 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Contract = await request.json();
+    if (!payload.contractId || !payload.empId || !payload.startDate) {
+      return NextResponse.json(
+        { error: 'Thiếu mã hợp đồng, nhân viên hoặc ngày bắt đầu' },
+        { status: 400 },
+      );
+    }
+
+    const updatedContract: Contract = {
+      contractId: payload.contractId.trim(),
+      empId: payload.empId.trim(),
+      startDate: payload.startDate,
+      endDate: payload.endDate,
+      salaryFactor: payload.salaryFactor,
+      contractType: payload.contractType,
+    };
+
+    if (shouldUseOracle()) {
+      const factorId = await resolveFactorId(updatedContract.salaryFactor);
+      const affected = await OracleService.update(
+        SQL_QUERIES.CONTRACT.UPDATE,
+        {
+          code: updatedContract.contractId,
+          empId: updatedContract.empId,
+          startDate: updatedContract.startDate ? new Date(updatedContract.startDate) : null,
+          endDate: updatedContract.endDate ? new Date(updatedContract.endDate) : null,
+          factorId,
+          contractType: updatedContract.contractType ?? 'Chính thức',
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy hợp đồng để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockContracts.findIndex(
+        (contract) => contract.contractId === updatedContract.contractId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy hợp đồng để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockContracts[index] = updatedContract;
+    }
+
+    return NextResponse.json(updatedContract);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật hợp đồng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật hợp đồng' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { contractId } = await request.json();
+    if (!contractId) {
+      return NextResponse.json({ error: 'Thiếu mã hợp đồng' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        SQL_QUERIES.CONTRACT.DELETE,
+        { code: contractId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy hợp đồng để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockContracts.findIndex((contract) => contract.contractId === contractId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy hợp đồng để xóa' },
+          { status: 404 },
+        );
+      }
+      mockContracts.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa hợp đồng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa hợp đồng' },
+      { status: 500 },
+    );
+  }
+}
+

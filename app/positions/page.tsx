@@ -86,14 +86,18 @@ export default function PositionsPage() {
   const handleSubmit = async (data: Position) => {
     setFormLoading(true);
     try {
-      if (selectedPosition) {
-        setPositions((prev) =>
-          prev.map((pos) => (pos.positionId === data.positionId ? data : pos))
-        );
-      } else {
-        setPositions((prev) => [...prev, data]);
-      }
+      const url = '/api/positions';
+      const method = selectedPosition ? 'PUT' : 'POST';
       
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi lưu chức vụ');
+      
+      await fetchPositions();
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedPosition(null);
@@ -110,10 +114,15 @@ export default function PositionsPage() {
     
     setFormLoading(true);
     try {
-      setPositions((prev) =>
-        prev.filter((pos) => pos.positionId !== selectedPosition.positionId)
-      );
+      const response = await fetch('/api/positions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positionId: selectedPosition.positionId }),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi xóa chức vụ');
       
+      await fetchPositions();
       setIsDeleteDialogOpen(false);
       setSelectedPosition(null);
     } catch (error) {

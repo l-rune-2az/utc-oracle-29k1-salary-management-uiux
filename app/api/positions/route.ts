@@ -67,3 +67,97 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Position = await request.json();
+    if (!payload.positionId || !payload.positionName) {
+      return NextResponse.json(
+        { error: 'Thiếu mã hoặc tên chức vụ' },
+        { status: 400 },
+      );
+    }
+
+    const updatedPosition: Position = {
+      positionId: payload.positionId.trim(),
+      positionName: payload.positionName.trim(),
+      baseSalary: payload.baseSalary,
+    };
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.update(
+        SQL_QUERIES.POSITION.UPDATE,
+        {
+          name: updatedPosition.positionName,
+          code: updatedPosition.positionId,
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy chức vụ để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockPositions.findIndex(
+        (pos) => pos.positionId === updatedPosition.positionId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy chức vụ để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockPositions[index] = updatedPosition;
+    }
+
+    return NextResponse.json(updatedPosition);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật chức vụ', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật chức vụ' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { positionId } = await request.json();
+    if (!positionId) {
+      return NextResponse.json({ error: 'Thiếu mã chức vụ' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        SQL_QUERIES.POSITION.DELETE,
+        { code: positionId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy chức vụ để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockPositions.findIndex((pos) => pos.positionId === positionId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy chức vụ để xóa' },
+          { status: 404 },
+        );
+      }
+      mockPositions.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa chức vụ', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa chức vụ' },
+      { status: 500 },
+    );
+  }
+}
+

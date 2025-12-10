@@ -91,8 +91,10 @@ export default function PenaltiesPage() {
     
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/penalties/${selectedPenalty.penaltyId}`, {
+      const response = await fetch('/api/penalties', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ penaltyId: selectedPenalty.penaltyId }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa phạt');

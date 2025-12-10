@@ -16,6 +16,8 @@ import {
   FiSettings,
   FiChevronDown,
   FiChevronRight,
+  FiTrendingUp,
+  FiBarChart2,
 } from 'react-icons/fi';
 
 interface MenuItem {
@@ -48,6 +50,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { href: '/employees', label: 'Danh Sách NV', icon: FiUsers },
       { href: '/contracts', label: 'Hợp Đồng', icon: FiFileText },
+      { href: '/allowances', label: 'Phụ Cấp', icon: FiTrendingUp },
       { href: '/attendances', label: 'Chấm Công', icon: FiClock },
     ],
   },
@@ -59,6 +62,10 @@ const menuGroups: MenuGroup[] = [
       { href: '/payrolls', label: 'Bảng Lương', icon: FiDollarSign },
       { href: '/payments', label: 'Phiếu Chi', icon: FiCreditCard },
     ],
+  },
+  {
+    label: 'Báo Cáo',
+    items: [{ href: '/reports', label: 'Xem Báo Cáo', icon: FiBarChart2 }],
   },
 ];
 

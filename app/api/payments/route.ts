@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { mockSalaryPayments } from '@/data/mockData';
 import { SalaryPayment } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
@@ -29,27 +30,44 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data: SalaryPayment = await request.json();
-
-    if (shouldUseOracle()) {
+    const payload: SalaryPayment = await request.json();
+    if (!payload.payrollId) {
       return NextResponse.json(
-        {
-          error:
-            'Phiếu chi được tạo qua procedure CREATE_SALARY_PAYMENT (file 010). Vui lòng chạy procedure này để đồng bộ dữ liệu.',
-        },
-        { status: 501 },
+        { error: 'Thiếu ID bảng lương' },
+        { status: 400 },
       );
     }
 
     const newPayment: SalaryPayment = {
-      paymentId: data.paymentId,
-      payrollId: data.payrollId,
-      paymentDate: data.paymentDate,
-      approvedBy: data.approvedBy,
-      note: data.note,
+      paymentId: payload.paymentId || randomUUID(),
+      payrollId: payload.payrollId,
+      paymentDate: payload.paymentDate || new Date().toISOString(),
+      approvedBy: payload.approvedBy,
+      note: payload.note,
     };
 
-    mockSalaryPayments.push(newPayment);
+    if (shouldUseOracle()) {
+      // Insert phiếu chi
+      await OracleService.insert(
+        SQL_QUERIES.SALARY_PAYMENT.INSERT,
+        {
+          id: newPayment.paymentId,
+          payrollId: newPayment.payrollId,
+          paymentDate: newPayment.paymentDate ? new Date(newPayment.paymentDate) : new Date(),
+          approvedBy: newPayment.approvedBy ?? null,
+          note: newPayment.note ?? null,
+        },
+      );
+
+      // Cập nhật trạng thái bảng lương thành PAID
+      await OracleService.update(
+        SQL_QUERIES.SALARY_PAYMENT.UPDATE_PAYROLL_STATUS,
+        { payrollId: newPayment.payrollId },
+      );
+    } else {
+      mockSalaryPayments.push(newPayment);
+    }
+
     return NextResponse.json(newPayment, { status: 201 });
   } catch (error) {
     console.error('Lỗi khi tạo phiếu chi lương mới', error);

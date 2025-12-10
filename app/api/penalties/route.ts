@@ -73,3 +73,104 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Penalty = await request.json();
+    if (!payload.penaltyId || !payload.empId || !payload.amount) {
+      return NextResponse.json(
+        { error: 'Thiếu ID, mã nhân viên hoặc số tiền phạt' },
+        { status: 400 },
+      );
+    }
+
+    const updatedPenalty: Penalty = {
+      penaltyId: payload.penaltyId,
+      empId: payload.empId,
+      penaltyType: payload.penaltyType,
+      penaltyDate: payload.penaltyDate,
+      amount: payload.amount,
+      reason: payload.reason,
+    };
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.update(
+        SQL_QUERIES.PENALTY.UPDATE,
+        {
+          id: updatedPenalty.penaltyId,
+          empId: updatedPenalty.empId,
+          penaltyType: updatedPenalty.penaltyType ?? null,
+          penaltyDate: updatedPenalty.penaltyDate ? new Date(updatedPenalty.penaltyDate) : null,
+          amount: updatedPenalty.amount,
+          reason: updatedPenalty.reason ?? null,
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy phạt để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockPenalties.findIndex(
+        (penalty) => penalty.penaltyId === updatedPenalty.penaltyId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy phạt để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockPenalties[index] = updatedPenalty;
+    }
+
+    return NextResponse.json(updatedPenalty);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật phạt', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật phạt' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { penaltyId } = await request.json();
+    if (!penaltyId) {
+      return NextResponse.json({ error: 'Thiếu ID phạt' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        SQL_QUERIES.PENALTY.DELETE,
+        { id: penaltyId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy phạt để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockPenalties.findIndex((penalty) => penalty.penaltyId === penaltyId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy phạt để xóa' },
+          { status: 404 },
+        );
+      }
+      mockPenalties.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa phạt', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa phạt' },
+      { status: 500 },
+    );
+  }
+}
+

@@ -121,8 +121,10 @@ export default function RewardsPage() {
     
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/rewards/${selectedReward.rewardId}`, {
+      const response = await fetch('/api/rewards', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId: selectedReward.rewardId }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa thưởng');

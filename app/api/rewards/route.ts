@@ -77,3 +77,108 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Reward = await request.json();
+    if (!payload.rewardId || !payload.amount) {
+      return NextResponse.json(
+        { error: 'Thiếu ID hoặc số tiền thưởng' },
+        { status: 400 },
+      );
+    }
+
+    const updatedReward: Reward = {
+      rewardId: payload.rewardId,
+      empId: payload.empId,
+      deptId: payload.deptId,
+      rewardType: payload.rewardType,
+      rewardDate: payload.rewardDate,
+      amount: payload.amount,
+      description: payload.description,
+      approvedBy: payload.approvedBy,
+    };
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.update(
+        SQL_QUERIES.REWARD.UPDATE,
+        {
+          id: updatedReward.rewardId,
+          empId: updatedReward.empId ?? null,
+          deptId: updatedReward.deptId ?? null,
+          rewardType: updatedReward.rewardType ?? null,
+          rewardDate: updatedReward.rewardDate ? new Date(updatedReward.rewardDate) : null,
+          amount: updatedReward.amount,
+          description: updatedReward.description ?? null,
+          approvedBy: updatedReward.approvedBy ?? null,
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockRewards.findIndex(
+        (reward) => reward.rewardId === updatedReward.rewardId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockRewards[index] = updatedReward;
+    }
+
+    return NextResponse.json(updatedReward);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật thưởng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật thưởng' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { rewardId } = await request.json();
+    if (!rewardId) {
+      return NextResponse.json({ error: 'Thiếu ID thưởng' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        SQL_QUERIES.REWARD.DELETE,
+        { id: rewardId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockRewards.findIndex((reward) => reward.rewardId === rewardId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để xóa' },
+          { status: 404 },
+        );
+      }
+      mockRewards.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa thưởng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa thưởng' },
+      { status: 500 },
+    );
+  }
+}
+
