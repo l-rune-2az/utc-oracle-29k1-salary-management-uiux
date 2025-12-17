@@ -29,6 +29,16 @@ export interface Employee {
   status?: string; // ACTIVE/INACTIVE
 }
 
+export interface EmployeeDependent {
+  dependentId: string;
+  empId: string;
+  fullName: string;
+  relationship?: string; // Vợ/Chồng/Con/Cha/Mẹ
+  birthDate?: Date | string;
+  gender?: number; // 1=Nam, 0=Nữ
+  idNumber?: string; // Số CMND/CCCD
+}
+
 export interface Contract {
   contractId: string;
   empId: string;
@@ -37,6 +47,17 @@ export interface Contract {
   endDate?: Date | string;
   salaryFactor?: number;
   contractType?: string;
+}
+
+export interface EmployeeAllowance {
+  allowanceId: string;
+  empId: string;
+  allowanceType?: string; // Loại phụ cấp
+  amount: number;
+  startDate?: Date | string;
+  endDate?: Date | string;
+  description?: string;
+  status?: string; // ACTIVE/INACTIVE
 }
 
 // ===========================

@@ -95,14 +95,9 @@ export default function PositionsPage() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu chức vụ');
-      }
-
-      // Reload danh sách sau khi lưu thành công
-      await fetchPositions();
+      if (!response.ok) throw new Error('Lỗi khi lưu chức vụ');
       
+      await fetchPositions();
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedPosition(null);
@@ -125,14 +120,9 @@ export default function PositionsPage() {
         body: JSON.stringify({ positionId: selectedPosition.positionId }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Có lỗi xảy ra khi xóa chức vụ');
-      }
-
-      // Reload danh sách sau khi xóa thành công
-      await fetchPositions();
+      if (!response.ok) throw new Error('Lỗi khi xóa chức vụ');
       
+      await fetchPositions();
       setIsDeleteDialogOpen(false);
       setSelectedPosition(null);
     } catch (error: any) {

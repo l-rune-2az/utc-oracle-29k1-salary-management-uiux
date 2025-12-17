@@ -10,6 +10,7 @@ import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import RewardForm from '@/components/forms/RewardForm';
 
 export default function RewardsPage() {
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -17,7 +18,7 @@ export default function RewardsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
-  
+
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -25,7 +26,7 @@ export default function RewardsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  
+
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -95,7 +96,7 @@ export default function RewardsPage() {
     try {
       const url = '/api/rewards';
       const method = selectedReward ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -103,7 +104,7 @@ export default function RewardsPage() {
       });
 
       if (!response.ok) throw new Error('Lỗi khi lưu thưởng');
-      
+
       await fetchRewards();
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
@@ -118,15 +119,17 @@ export default function RewardsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedReward) return;
-    
+
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/rewards/${selectedReward.rewardId}`, {
+      const response = await fetch('/api/rewards', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId: selectedReward.rewardId }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa thưởng');
-      
+
       await fetchRewards();
       setIsDeleteDialogOpen(false);
       setSelectedReward(null);
@@ -309,6 +312,49 @@ export default function RewardsPage() {
         )}
       </Modal>
 
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSelectedReward(null);
+        }}
+        title="Thêm Thưởng Mới"
+        size="lg"
+      >
+        <RewardForm
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            setSelectedReward(null);
+          }}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedReward(null);
+        }}
+        title="Chỉnh Sửa Thưởng"
+        size="lg"
+      >
+        {selectedReward && (
+          <RewardForm
+            reward={selectedReward}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setSelectedReward(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
+
       {/* Delete Confirm Dialog */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
@@ -318,9 +364,8 @@ export default function RewardsPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa thưởng "${
-          selectedReward?.rewardCode || selectedReward?.rewardId
-        }"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa thưởng "${selectedReward?.rewardCode || selectedReward?.rewardId
+          }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

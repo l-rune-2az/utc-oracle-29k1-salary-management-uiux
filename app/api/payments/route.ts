@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { mockSalaryPayments } from '@/data/mockData';
 import { SalaryPayment } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -29,24 +31,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const payments = await OracleService.select<SalaryPayment>(
-        `SELECT
-            sp.ID AS "paymentId",
-            'PM-' || NVL(TO_CHAR(sp.PAYMENT_DATE, 'YYYYMMDD'), '00000000') || '-' ||
-              SUBSTR(sp.ID, 1, 6) AS "paymentCode",
-            sp.PAYROLL_ID AS "payrollId",
-            CASE
-              WHEN pr.ID IS NOT NULL THEN
-                'PR-' || TO_CHAR(pr.YEAR_NUM) || LPAD(TO_CHAR(pr.MONTH_NUM), 2, '0') || '-' ||
-                  COALESCE(e.CODE, SUBSTR(pr.EMP_ID, 1, 6), SUBSTR(pr.ID, 1, 6))
-              ELSE NULL
-            END AS "payrollCode",
-            sp.PAYMENT_DATE AS "paymentDate",
-            sp.APPROVED_BY AS "approvedBy",
-            sp.NOTE AS "note"
-         FROM SALARY_PAYMENT sp
-         LEFT JOIN PAYROLL pr ON pr.ID = sp.PAYROLL_ID
-         LEFT JOIN EMPLOYEE e ON e.ID = pr.EMP_ID
-         ORDER BY sp.PAYMENT_DATE DESC NULLS LAST`,
+        SQL_QUERIES.SALARY_PAYMENT.SELECT_ALL,
       );
       return NextResponse.json(payments);
     }
@@ -69,27 +54,44 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data: SalaryPayment = await request.json();
-
-    if (shouldUseOracle()) {
+    const payload: SalaryPayment = await request.json();
+    if (!payload.payrollId) {
       return NextResponse.json(
-        {
-          error:
-            'Phiếu chi được tạo qua procedure CREATE_SALARY_PAYMENT (file 010). Vui lòng chạy procedure này để đồng bộ dữ liệu.',
-        },
-        { status: 501 },
+        { error: 'Thiếu ID bảng lương' },
+        { status: 400 },
       );
     }
 
     const newPayment: SalaryPayment = {
-      paymentId: data.paymentId,
-      payrollId: data.payrollId,
-      paymentDate: data.paymentDate,
-      approvedBy: data.approvedBy,
-      note: data.note,
+      paymentId: payload.paymentId || randomUUID(),
+      payrollId: payload.payrollId,
+      paymentDate: payload.paymentDate || new Date().toISOString(),
+      approvedBy: payload.approvedBy,
+      note: payload.note,
     };
 
-    mockSalaryPayments.push(newPayment);
+    if (shouldUseOracle()) {
+      // Insert phiếu chi
+      await OracleService.insert(
+        SQL_QUERIES.SALARY_PAYMENT.INSERT,
+        {
+          id: newPayment.paymentId,
+          payrollId: newPayment.payrollId,
+          paymentDate: newPayment.paymentDate ? new Date(newPayment.paymentDate) : new Date(),
+          approvedBy: newPayment.approvedBy ?? null,
+          note: newPayment.note ?? null,
+        },
+      );
+
+      // Cập nhật trạng thái bảng lương thành PAID
+      await OracleService.update(
+        SQL_QUERIES.SALARY_PAYMENT.UPDATE_PAYROLL_STATUS,
+        { payrollId: newPayment.payrollId },
+      );
+    } else {
+      mockSalaryPayments.push(newPayment);
+    }
+
     return NextResponse.json(newPayment, { status: 201 });
   } catch (error) {
     console.error('Lỗi khi tạo phiếu chi lương mới', error);

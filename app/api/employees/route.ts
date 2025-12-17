@@ -5,6 +5,7 @@ import { Employee } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -14,17 +15,7 @@ export async function GET() {
     
     if (shouldUseOracle()) {
       const result = await OracleService.select<Employee>(
-        `SELECT
-            CODE AS "empId",
-            FULL_NAME AS "fullName",
-            BIRTH_DATE AS "birthDate",
-            GENDER AS "gender",
-            DEPT_ID AS "deptId",
-            POSITION_ID AS "positionId",
-            TRUNC(JOIN_DATE) AS "joinDate",
-            STATUS AS "status"
-         FROM EMPLOYEE
-         ORDER BY CREATED_AT DESC, FULL_NAME`,
+        SQL_QUERIES.EMPLOYEE.SELECT_ALL,
       );
       // Đảm bảo result là array
       employees = Array.isArray(result) ? result : [];
@@ -63,13 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO EMPLOYEE (
-            ID, CODE, FULL_NAME, BIRTH_DATE, GENDER, DEPT_ID, POSITION_ID,
-            JOIN_DATE, STATUS, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :code, :fullName, :birthDate, :gender, :deptId, :positionId,
-            :joinDate, :status, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.EMPLOYEE.INSERT,
         {
           id: randomUUID(),
           code: newEmployee.empId,
@@ -119,17 +104,7 @@ export async function PUT(request: NextRequest) {
 
     if (shouldUseOracle()) {
       const affected = await OracleService.update(
-        `UPDATE EMPLOYEE
-         SET FULL_NAME = :fullName,
-             BIRTH_DATE = :birthDate,
-             GENDER = :gender,
-             DEPT_ID = :deptId,
-             POSITION_ID = :positionId,
-             JOIN_DATE = :joinDate,
-             STATUS = :status,
-             UPDATED_BY = 'system',
-             UPDATED_AT = SYSTIMESTAMP
-         WHERE CODE = :code`,
+        SQL_QUERIES.EMPLOYEE.UPDATE,
         {
           fullName: updatedEmployee.fullName,
           birthDate: updatedEmployee.birthDate ? new Date(updatedEmployee.birthDate) : null,
@@ -173,16 +148,14 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
-    const empId = body.empId;
-    
+    const { empId } = await request.json();
     if (!empId) {
       return NextResponse.json({ error: 'Thiếu mã nhân viên' }, { status: 400 });
     }
 
     if (shouldUseOracle()) {
       const affected = await OracleService.delete(
-        'DELETE FROM EMPLOYEE WHERE CODE = :code',
+        SQL_QUERIES.EMPLOYEE.DELETE,
         { code: empId },
       );
 

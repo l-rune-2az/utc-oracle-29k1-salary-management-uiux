@@ -10,6 +10,7 @@ import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PenaltyForm from '@/components/forms/PenaltyForm';
 
 export default function PenaltiesPage() {
   const [penalties, setPenalties] = useState<Penalty[]>([]);
@@ -17,13 +18,15 @@ export default function PenaltiesPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
-  
+
   // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPenalty, setSelectedPenalty] = useState<Penalty | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  
+
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -69,11 +72,39 @@ export default function PenaltiesPage() {
   };
 
   const handleCreate = () => {
-    alert('Chức năng thêm phạt sẽ được triển khai sau');
+    setSelectedPenalty(null);
+    setIsCreateModalOpen(true);
   };
 
   const handleEdit = (penalty: Penalty) => {
-    alert('Chức năng chỉnh sửa phạt sẽ được triển khai sau');
+    setSelectedPenalty(penalty);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSubmit = async (data: Penalty) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/penalties';
+      const method = selectedPenalty ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi lưu phạt');
+
+      await fetchPenalties();
+      setIsCreateModalOpen(false);
+      setIsEditModalOpen(false);
+      setSelectedPenalty(null);
+    } catch (error) {
+      console.error('Lỗi khi lưu phạt:', error);
+      alert('Có lỗi xảy ra khi lưu phạt');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleView = (penalty: Penalty) => {
@@ -88,15 +119,17 @@ export default function PenaltiesPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedPenalty) return;
-    
+
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/penalties/${selectedPenalty.penaltyId}`, {
+      const response = await fetch('/api/penalties', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ penaltyId: selectedPenalty.penaltyId }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa phạt');
-      
+
       await fetchPenalties();
       setIsDeleteDialogOpen(false);
       setSelectedPenalty(null);
@@ -276,6 +309,49 @@ export default function PenaltiesPage() {
         )}
       </Modal>
 
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSelectedPenalty(null);
+        }}
+        title="Thêm Phạt Mới"
+        size="lg"
+      >
+        <PenaltyForm
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            setSelectedPenalty(null);
+          }}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedPenalty(null);
+        }}
+        title="Chỉnh Sửa Phạt"
+        size="lg"
+      >
+        {selectedPenalty && (
+          <PenaltyForm
+            penalty={selectedPenalty}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setSelectedPenalty(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
+
       {/* Delete Confirm Dialog */}
       <ConfirmDialog
         isOpen={isDeleteDialogOpen}
@@ -285,9 +361,8 @@ export default function PenaltiesPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa phạt "${
-          selectedPenalty?.penaltyCode || selectedPenalty?.penaltyId
-        }"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa phạt "${selectedPenalty?.penaltyCode || selectedPenalty?.penaltyId
+          }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

@@ -10,6 +10,7 @@ import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ContractForm from '@/components/forms/ContractForm';
 
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
@@ -19,6 +20,8 @@ export default function ContractsPage() {
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
   
   // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -63,11 +66,39 @@ export default function ContractsPage() {
   };
 
   const handleCreate = () => {
-    alert('Chức năng thêm hợp đồng sẽ được triển khai sau');
+    setSelectedContract(null);
+    setIsCreateModalOpen(true);
   };
 
   const handleEdit = (contract: Contract) => {
-    alert('Chức năng chỉnh sửa hợp đồng sẽ được triển khai sau');
+    setSelectedContract(contract);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSubmit = async (data: Contract) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/contracts';
+      const method = selectedContract ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi lưu hợp đồng');
+      
+      await fetchContracts();
+      setIsCreateModalOpen(false);
+      setIsEditModalOpen(false);
+      setSelectedContract(null);
+    } catch (error) {
+      console.error('Lỗi khi lưu hợp đồng:', error);
+      alert('Có lỗi xảy ra khi lưu hợp đồng');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleView = (contract: Contract) => {
@@ -85,8 +116,10 @@ export default function ContractsPage() {
     
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/contracts/${selectedContract.contractId}`, {
+      const response = await fetch('/api/contracts', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contractId: selectedContract.contractId }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa hợp đồng');
@@ -214,6 +247,49 @@ export default function ContractsPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSelectedContract(null);
+        }}
+        title="Thêm Hợp Đồng Mới"
+        size="md"
+      >
+        <ContractForm
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            setSelectedContract(null);
+          }}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedContract(null);
+        }}
+        title="Chỉnh Sửa Hợp Đồng"
+        size="md"
+      >
+        {selectedContract && (
+          <ContractForm
+            contract={selectedContract}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setSelectedContract(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
 
       {/* View Modal */}
       <Modal

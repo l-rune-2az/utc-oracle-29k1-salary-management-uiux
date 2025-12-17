@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { Payroll } from '@/types/models';
-import { FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
+import { FiDollarSign, FiTrash2, FiEye } from 'react-icons/fi';
 import PageHeader from '@/components/PageHeader';
 import DataTable, { Column } from '@/components/DataTable';
 import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import PayrollCalculationForm from '@/components/forms/PayrollCalculationForm';
 
 export default function PayrollsPage() {
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
@@ -16,13 +17,14 @@ export default function PayrollsPage() {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
-  
+
   // Modal states
+  const [isCalculateModalOpen, setIsCalculateModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  
+
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -64,12 +66,32 @@ export default function PayrollsPage() {
     setCurrentPage(1);
   };
 
-  const handleCreate = () => {
-    alert('Chức năng tạo bảng lương sẽ được triển khai sau');
+  const handleCalculate = () => {
+    setIsCalculateModalOpen(true);
   };
 
-  const handleEdit = (payroll: Payroll) => {
-    alert('Chức năng chỉnh sửa bảng lương sẽ được triển khai sau');
+  const handleCalculateSubmit = async (data: { monthNum: number; yearNum: number; empId?: string }) => {
+    setFormLoading(true);
+    try {
+      const response = await fetch('/api/payrolls', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi tính bảng lương');
+
+      const result = await response.json();
+      alert(result.message || 'Tính bảng lương thành công');
+
+      await fetchPayrolls();
+      setIsCalculateModalOpen(false);
+    } catch (error) {
+      console.error('Lỗi khi tính bảng lương:', error);
+      alert('Có lỗi xảy ra khi tính bảng lương');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleView = (payroll: Payroll) => {
@@ -84,7 +106,7 @@ export default function PayrollsPage() {
 
   const handleDeleteConfirm = async () => {
     if (!selectedPayroll) return;
-    
+
     setFormLoading(true);
     try {
       const response = await fetch(`/api/payrolls/${selectedPayroll.payrollId}`, {
@@ -92,7 +114,7 @@ export default function PayrollsPage() {
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa bảng lương');
-      
+
       await fetchPayrolls();
       setIsDeleteDialogOpen(false);
       setSelectedPayroll(null);
@@ -231,7 +253,7 @@ export default function PayrollsPage() {
       key: 'actions',
       label: 'Thao Tác',
       align: 'center',
-      width: '140px',
+      width: '100px',
       render: (_, row) => (
         <div className="action-buttons-container">
           <button
@@ -240,13 +262,6 @@ export default function PayrollsPage() {
             onClick={() => handleView(row)}
           >
             <FiEye />
-          </button>
-          <button
-            className="action-btn action-btn--edit"
-            title="Chỉnh sửa"
-            onClick={() => handleEdit(row)}
-          >
-            <FiEdit2 />
           </button>
           <button
             className="action-btn action-btn--delete"
@@ -270,9 +285,9 @@ export default function PayrollsPage() {
       <PageHeader
         title="Quản Lý Bảng Lương"
         actions={
-          <button className="btn btn-primary" onClick={handleCreate}>
-            <FiPlus style={{ marginRight: 'var(--space-2)' }} />
-            Tạo Bảng Lương
+          <button className="btn btn-primary" onClick={handleCalculate}>
+            <FiDollarSign style={{ marginRight: 'var(--space-2)' }} />
+            Tính Bảng Lương
           </button>
         }
       />
@@ -299,6 +314,20 @@ export default function PayrollsPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* Calculate Modal */}
+      <Modal
+        isOpen={isCalculateModalOpen}
+        onClose={() => setIsCalculateModalOpen(false)}
+        title="Tính Bảng Lương"
+        size="md"
+      >
+        <PayrollCalculationForm
+          onSubmit={handleCalculateSubmit}
+          onCancel={() => setIsCalculateModalOpen(false)}
+          loading={formLoading}
+        />
+      </Modal>
 
       {/* View Modal */}
       <Modal
@@ -361,9 +390,8 @@ export default function PayrollsPage() {
         }}
         onConfirm={handleDeleteConfirm}
         title="Xác Nhận Xóa"
-        message={`Bạn có chắc chắn muốn xóa bảng lương "${
-          selectedPayroll?.payrollCode || selectedPayroll?.payrollId
-        }"? Hành động này không thể hoàn tác.`}
+        message={`Bạn có chắc chắn muốn xóa bảng lương "${selectedPayroll?.payrollCode || selectedPayroll?.payrollId
+          }"? Hành động này không thể hoàn tác.`}
         confirmText="Xóa"
         cancelText="Hủy"
         type="danger"

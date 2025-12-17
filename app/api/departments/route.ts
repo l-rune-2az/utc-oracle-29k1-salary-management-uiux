@@ -5,6 +5,7 @@ import { Department } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -12,12 +13,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const departments = await OracleService.select<Department>(
-        `SELECT 
-            CODE AS "deptId",
-            NAME AS "deptName",
-            LOCATION AS "location"
-         FROM DEPARTMENT
-         ORDER BY CREATED_AT DESC, NAME`,
+        SQL_QUERIES.DEPARTMENT.SELECT_ALL,
       );
       return NextResponse.json(departments);
     }
@@ -50,11 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO DEPARTMENT (
-            ID, CODE, NAME, LOCATION, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :code, :name, :location, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.DEPARTMENT.INSERT,
         {
           id: randomUUID(),
           code: newDepartment.deptId,
@@ -94,12 +86,7 @@ export async function PUT(request: NextRequest) {
 
     if (shouldUseOracle()) {
       const affected = await OracleService.update(
-        `UPDATE DEPARTMENT
-         SET NAME = :name,
-             LOCATION = :location,
-             UPDATED_BY = 'system',
-             UPDATED_AT = SYSTIMESTAMP
-         WHERE CODE = :code`,
+        SQL_QUERIES.DEPARTMENT.UPDATE,
         {
           name: updatedDepartment.deptName,
           location: updatedDepartment.location ?? null,
@@ -145,7 +132,7 @@ export async function DELETE(request: NextRequest) {
 
     if (shouldUseOracle()) {
       const affected = await OracleService.delete(
-        'DELETE FROM DEPARTMENT WHERE CODE = :code',
+        SQL_QUERIES.DEPARTMENT.DELETE,
         { code: deptId },
       );
 

@@ -5,6 +5,7 @@ import { Position } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -12,12 +13,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const positions = await OracleService.select<Position>(
-        `SELECT 
-            CODE AS "positionId",
-            NAME AS "positionName",
-            NULL AS "baseSalary"
-         FROM POSITION
-         ORDER BY CREATED_AT DESC, NAME`,
+        SQL_QUERIES.POSITION.SELECT_ALL,
       );
       return NextResponse.json(positions);
     }
@@ -50,11 +46,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO POSITION (
-            ID, CODE, NAME, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :code, :name, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.POSITION.INSERT,
         {
           id: randomUUID(),
           code: newPosition.positionId,
@@ -93,11 +85,7 @@ export async function PUT(request: NextRequest) {
 
     if (shouldUseOracle()) {
       const affected = await OracleService.update(
-        `UPDATE POSITION
-         SET NAME = :name,
-             UPDATED_BY = 'system',
-             UPDATED_AT = SYSTIMESTAMP
-         WHERE CODE = :code`,
+        SQL_QUERIES.POSITION.UPDATE,
         {
           name: updatedPosition.positionName,
           code: updatedPosition.positionId,
@@ -135,16 +123,14 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
-    const positionId = body.positionId;
-    
+    const { positionId } = await request.json();
     if (!positionId) {
       return NextResponse.json({ error: 'Thiếu mã chức vụ' }, { status: 400 });
     }
 
     if (shouldUseOracle()) {
       const affected = await OracleService.delete(
-        'DELETE FROM POSITION WHERE CODE = :code',
+        SQL_QUERIES.POSITION.DELETE,
         { code: positionId },
       );
 

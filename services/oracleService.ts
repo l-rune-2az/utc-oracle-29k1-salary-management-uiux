@@ -63,5 +63,19 @@ export class OracleService {
   ) {
     return this.insert(sql, bindParams, options);
   }
+
+  static async execute(
+    sql: string,
+    bindParams: OracleBindParams = {},
+    options: OracleExecuteOptions = { autoCommit: true },
+  ) {
+    this.ensureConfigured();
+    return withConnection(async (connection) => {
+      const result = await connection.execute(sql, bindParams, {
+        autoCommit: options.autoCommit,
+      });
+      return result.rowsAffected ?? 0;
+    });
+  }
 }
 

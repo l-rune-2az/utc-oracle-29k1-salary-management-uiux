@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { mockPayrolls } from '@/data/mockData';
 import { Payroll } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -21,23 +23,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const payrolls = await OracleService.select<Payroll>(
-        `SELECT
-            p.ID AS "payrollId",
-            'PR-' || TO_CHAR(p.YEAR_NUM) || LPAD(TO_CHAR(p.MONTH_NUM), 2, '0') || '-' ||
-              COALESCE(e.CODE, SUBSTR(p.EMP_ID, 1, 6), SUBSTR(p.ID, 1, 6)) AS "payrollCode",
-            COALESCE(e.CODE, p.EMP_ID) AS "empId",
-            p.MONTH_NUM AS "monthNum",
-            p.YEAR_NUM AS "yearNum",
-            p.BASIC_SALARY AS "basicSalary",
-            p.ALLOWANCE AS "allowance",
-            p.REWARD_AMOUNT AS "rewardAmount",
-            p.PENALTY_AMOUNT AS "penaltyAmount",
-            p.OT_SALARY AS "otSalary",
-            p.TOTAL_SALARY AS "totalSalary",
-            p.STATUS AS "status"
-         FROM PAYROLL p
-         LEFT JOIN EMPLOYEE e ON e.ID = p.EMP_ID
-         ORDER BY p.YEAR_NUM DESC, p.MONTH_NUM DESC`,
+        SQL_QUERIES.PAYROLL.SELECT_ALL,
       );
       return NextResponse.json(payrolls);
     }
@@ -59,38 +45,125 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data: Payroll = await request.json();
+    const payload: { monthNum: number; yearNum: number; empId?: string } = await request.json();
 
-    if (shouldUseOracle()) {
+    if (!payload.monthNum || !payload.yearNum) {
       return NextResponse.json(
-        {
-          error:
-            'Bảng lương được tạo thông qua procedure CALCULATE_PAYROLL (file 009). Vui lòng chạy procedure trên Oracle để sinh dữ liệu chính xác.',
-        },
-        { status: 501 },
+        { error: 'Thiếu tháng hoặc năm' },
+        { status: 400 },
       );
     }
 
+    if (shouldUseOracle()) {
+      // Tính toán bảng lương cho tất cả nhân viên hoặc một nhân viên cụ thể
+      const calculatedPayrolls = await OracleService.select<{
+        empId: string;
+        empCode: string;
+        monthNum: number;
+        yearNum: number;
+        basicSalary: number;
+        allowance: number;
+        rewardAmount: number;
+        penaltyAmount: number;
+        otSalary: number;
+      }>(
+        SQL_QUERIES.PAYROLL.CALCULATE_FOR_EMPLOYEE,
+        {
+          monthNum: payload.monthNum,
+          yearNum: payload.yearNum,
+        },
+      );
+
+      const results: Payroll[] = [];
+
+      for (const calc of calculatedPayrolls) {
+        // Lọc theo empId nếu có
+        if (payload.empId && calc.empCode !== payload.empId) {
+          continue;
+        }
+
+        const totalSalary =
+          calc.basicSalary +
+          calc.allowance +
+          calc.rewardAmount -
+          calc.penaltyAmount +
+          calc.otSalary;
+
+        const payrollId = randomUUID();
+
+        // Insert hoặc Update bảng lương
+        await OracleService.execute(
+          SQL_QUERIES.PAYROLL.INSERT_OR_UPDATE,
+          {
+            id: payrollId,
+            empCode: calc.empCode,
+            monthNum: calc.monthNum,
+            yearNum: calc.yearNum,
+            basicSalary: calc.basicSalary,
+            allowance: calc.allowance,
+            rewardAmount: calc.rewardAmount,
+            penaltyAmount: calc.penaltyAmount,
+            otSalary: calc.otSalary,
+            totalSalary: totalSalary,
+          },
+        );
+
+        results.push({
+          payrollId,
+          empId: calc.empCode,
+          monthNum: calc.monthNum,
+          yearNum: calc.yearNum,
+          basicSalary: calc.basicSalary,
+          allowance: calc.allowance,
+          rewardAmount: calc.rewardAmount,
+          penaltyAmount: calc.penaltyAmount,
+          otSalary: calc.otSalary,
+          totalSalary: totalSalary,
+          status: 'UNPAID',
+        });
+      }
+
+      return NextResponse.json(
+        {
+          message: `Đã tính bảng lương cho ${results.length} nhân viên`,
+          payrolls: results,
+        },
+        { status: 201 },
+      );
+    }
+
+    // Mock data fallback
     const newPayroll: Payroll = {
-      payrollId: data.payrollId,
-      empId: data.empId,
-      monthNum: data.monthNum,
-      yearNum: data.yearNum,
-      basicSalary: data.basicSalary,
-      allowance: data.allowance,
-      rewardAmount: data.rewardAmount,
-      penaltyAmount: data.penaltyAmount,
-      otSalary: data.otSalary,
-      totalSalary: data.totalSalary,
-      status: data.status || 'UNPAID',
+      payrollId: randomUUID(),
+      empId: payload.empId || 'EMP001',
+      monthNum: payload.monthNum,
+      yearNum: payload.yearNum,
+      basicSalary: 15000000,
+      allowance: 2000000,
+      rewardAmount: 1000000,
+      penaltyAmount: 0,
+      otSalary: 500000,
+      totalSalary: 18500000,
+      status: 'UNPAID',
     };
 
     mockPayrolls.push(newPayroll);
-    return NextResponse.json(newPayroll, { status: 201 });
-  } catch (error) {
-    console.error('Lỗi khi tạo bảng lương mới', error);
+
     return NextResponse.json(
-      { error: 'Lỗi khi tạo bảng lương mới' },
+      {
+        message: `Đã tính bảng lương cho 1 nhân viên`,
+        payrolls: [newPayroll],
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error('Lỗi khi tính bảng lương', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    return NextResponse.json(
+      { error: 'Lỗi khi tính bảng lương: ' + (error instanceof Error ? error.message : 'Unknown error') },
       { status: 500 },
     );
   }

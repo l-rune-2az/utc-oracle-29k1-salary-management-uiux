@@ -9,6 +9,7 @@ import SearchFilter from '@/components/SearchFilter';
 import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import AttendanceForm from '@/components/forms/AttendanceForm';
 
 export default function AttendancesPage() {
   const [attendances, setAttendances] = useState<Attendance[]>([]);
@@ -18,6 +19,8 @@ export default function AttendancesPage() {
   const [searchFilters, setSearchFilters] = useState<Record<string, any>>({});
   
   // Modal states
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedAttendance, setSelectedAttendance] = useState<Attendance | null>(null);
@@ -61,11 +64,42 @@ export default function AttendancesPage() {
   };
 
   const handleCreate = () => {
-    alert('Chức năng thêm chấm công sẽ được triển khai sau');
+    setSelectedAttendance(null);
+    setIsCreateModalOpen(true);
   };
 
   const handleEdit = (attendance: Attendance) => {
-    alert('Chức năng chỉnh sửa chấm công sẽ được triển khai sau');
+    setSelectedAttendance(attendance);
+    setIsEditModalOpen(true);
+  };
+
+  const handleSubmit = async (data: Attendance) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/attendances';
+      const method = selectedAttendance ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Lỗi khi lưu chấm công');
+      }
+      
+      await fetchAttendances();
+      setIsCreateModalOpen(false);
+      setIsEditModalOpen(false);
+      setSelectedAttendance(null);
+    } catch (error: any) {
+      console.error('Lỗi khi lưu chấm công:', error);
+      alert(error.message || 'Có lỗi xảy ra khi lưu chấm công');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleView = (attendance: Attendance) => {
@@ -83,8 +117,14 @@ export default function AttendancesPage() {
     
     setFormLoading(true);
     try {
-      const response = await fetch(`/api/attendances/${selectedAttendance.attendId}`, {
+      const response = await fetch('/api/attendances', {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          empId: selectedAttendance.empId,
+          monthNum: selectedAttendance.monthNum,
+          yearNum: selectedAttendance.yearNum,
+        }),
       });
 
       if (!response.ok) throw new Error('Lỗi khi xóa chấm công');
@@ -207,6 +247,49 @@ export default function AttendancesPage() {
           onPageChange={setCurrentPage}
         />
       )}
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateModalOpen}
+        onClose={() => {
+          setIsCreateModalOpen(false);
+          setSelectedAttendance(null);
+        }}
+        title="Thêm Chấm Công Mới"
+        size="md"
+      >
+        <AttendanceForm
+          onSubmit={handleSubmit}
+          onCancel={() => {
+            setIsCreateModalOpen(false);
+            setSelectedAttendance(null);
+          }}
+          loading={formLoading}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedAttendance(null);
+        }}
+        title="Chỉnh Sửa Chấm Công"
+        size="md"
+      >
+        {selectedAttendance && (
+          <AttendanceForm
+            attendance={selectedAttendance}
+            onSubmit={handleSubmit}
+            onCancel={() => {
+              setIsEditModalOpen(false);
+              setSelectedAttendance(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
 
       {/* View Modal */}
       <Modal

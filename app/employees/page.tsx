@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Employee } from '@/types/models';
-import { FiPlus, FiEdit2, FiTrash2, FiEye } from 'react-icons/fi';
+import { Employee, EmployeeDependent } from '@/types/models';
+import { FiPlus, FiEdit2, FiTrash2, FiEye, FiUsers } from 'react-icons/fi';
 import { format } from 'date-fns';
 import PageHeader from '@/components/PageHeader';
 import DataTable, { Column } from '@/components/DataTable';
@@ -11,6 +11,7 @@ import TablePagination from '@/components/TablePagination';
 import Modal from '@/components/Modal';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import EmployeeForm from '@/components/forms/EmployeeForm';
+import DependentForm from '@/components/forms/DependentForm';
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -26,6 +27,14 @@ export default function EmployeesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  
+  // Dependent management states
+  const [dependents, setDependents] = useState<EmployeeDependent[]>([]);
+  const [isDependentsModalOpen, setIsDependentsModalOpen] = useState(false);
+  const [isDependentFormModalOpen, setIsDependentFormModalOpen] = useState(false);
+  const [isDependentDeleteDialogOpen, setIsDependentDeleteDialogOpen] = useState(false);
+  const [selectedDependent, setSelectedDependent] = useState<EmployeeDependent | null>(null);
+  const [dependentsLoading, setDependentsLoading] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -106,6 +115,95 @@ export default function EmployeesPage() {
     setIsViewModalOpen(true);
   };
 
+  const handleManageDependents = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setIsDependentsModalOpen(true);
+    await fetchDependents(employee.empId);
+  };
+
+  const fetchDependents = async (empId: string) => {
+    setDependentsLoading(true);
+    try {
+      const response = await fetch(`/api/employees/dependents?empCode=${empId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setDependents(data);
+      }
+    } catch (error) {
+      console.error('Lỗi khi tải danh sách người phụ thuộc:', error);
+    } finally {
+      setDependentsLoading(false);
+    }
+  };
+
+  const handleAddDependent = () => {
+    setSelectedDependent(null);
+    setIsDependentFormModalOpen(true);
+  };
+
+  const handleEditDependent = (dependent: EmployeeDependent) => {
+    setSelectedDependent(dependent);
+    setIsDependentFormModalOpen(true);
+  };
+
+  const handleDeleteDependent = (dependent: EmployeeDependent) => {
+    setSelectedDependent(dependent);
+    setIsDependentDeleteDialogOpen(true);
+  };
+
+  const handleDependentSubmit = async (data: EmployeeDependent) => {
+    setFormLoading(true);
+    try {
+      const url = '/api/employees/dependents';
+      const method = selectedDependent ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi lưu người phụ thuộc');
+      
+      if (selectedEmployee) {
+        await fetchDependents(selectedEmployee.empId);
+      }
+      setIsDependentFormModalOpen(false);
+      setSelectedDependent(null);
+    } catch (error) {
+      console.error('Lỗi khi lưu người phụ thuộc:', error);
+      alert('Có lỗi xảy ra khi lưu người phụ thuộc');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDependentDeleteConfirm = async () => {
+    if (!selectedDependent) return;
+    
+    setFormLoading(true);
+    try {
+      const response = await fetch('/api/employees/dependents', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dependentId: selectedDependent.dependentId }),
+      });
+
+      if (!response.ok) throw new Error('Lỗi khi xóa người phụ thuộc');
+      
+      if (selectedEmployee) {
+        await fetchDependents(selectedEmployee.empId);
+      }
+      setIsDependentDeleteDialogOpen(false);
+      setSelectedDependent(null);
+    } catch (error) {
+      console.error('Lỗi khi xóa người phụ thuộc:', error);
+      alert('Có lỗi xảy ra khi xóa người phụ thuộc');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   const handleDelete = (employee: Employee) => {
     setSelectedEmployee(employee);
     setIsDeleteDialogOpen(true);
@@ -123,14 +221,9 @@ export default function EmployeesPage() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu nhân viên');
-      }
-
-      // Reload danh sách sau khi lưu thành công
-      await fetchEmployees();
+      if (!response.ok) throw new Error('Lỗi khi lưu nhân viên');
       
+      await fetchEmployees();
       setIsCreateModalOpen(false);
       setIsEditModalOpen(false);
       setSelectedEmployee(null);
@@ -153,14 +246,9 @@ export default function EmployeesPage() {
         body: JSON.stringify({ empId: selectedEmployee.empId }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Có lỗi xảy ra khi xóa nhân viên');
-      }
-
-      // Reload danh sách sau khi xóa thành công
-      await fetchEmployees();
+      if (!response.ok) throw new Error('Lỗi khi xóa nhân viên');
       
+      await fetchEmployees();
       setIsDeleteDialogOpen(false);
       setSelectedEmployee(null);
     } catch (error: any) {
@@ -270,7 +358,7 @@ export default function EmployeesPage() {
       key: 'actions',
       label: 'Thao Tác',
       align: 'center',
-      width: '140px',
+      width: '180px',
       render: (_, row) => (
         <div className="action-buttons-container">
           <button
@@ -286,6 +374,14 @@ export default function EmployeesPage() {
             onClick={() => handleEdit(row)}
           >
             <FiEdit2 />
+          </button>
+          <button
+            className="action-btn action-btn--view"
+            title="Quản lý người phụ thuộc"
+            onClick={() => handleManageDependents(row)}
+            style={{ color: '#3b82f6' }}
+          >
+            <FiUsers />
           </button>
           <button
             className="action-btn action-btn--delete"
@@ -432,9 +528,128 @@ export default function EmployeesPage() {
             <div>
               <strong>Trạng Thái:</strong> {getStatusBadge(selectedEmployee.status)}
             </div>
+            <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border)' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleManageDependents(selectedEmployee)}
+                style={{ width: '100%' }}
+              >
+                <FiUsers style={{ marginRight: 'var(--space-2)' }} />
+                Quản Lý Người Phụ Thuộc
+              </button>
+            </div>
           </div>
         )}
       </Modal>
+
+      {/* Dependents Management Modal */}
+      <Modal
+        isOpen={isDependentsModalOpen}
+        onClose={() => {
+          setIsDependentsModalOpen(false);
+          setSelectedEmployee(null);
+          setDependents([]);
+        }}
+        title={`Quản Lý Người Phụ Thuộc - ${selectedEmployee?.fullName}`}
+        size="lg"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button className="btn btn-primary" onClick={handleAddDependent}>
+              <FiPlus style={{ marginRight: 'var(--space-2)' }} />
+              Thêm Người Phụ Thuộc
+            </button>
+          </div>
+
+          {dependentsLoading ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-8)' }}>Đang tải...</div>
+          ) : dependents.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-secondary)' }}>
+              Chưa có người phụ thuộc
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
+              {dependents.map((dep) => (
+                <div
+                  key={dep.dependentId}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: 'var(--space-3)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-md)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 'var(--font-weight-semibold)' }}>{dep.fullName}</div>
+                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+                      {dep.relationship && `Quan hệ: ${dep.relationship}`}
+                      {dep.birthDate && ` • Ngày sinh: ${formatDate(dep.birthDate)}`}
+                      {dep.idNumber && ` • CMND/CCCD: ${dep.idNumber}`}
+                    </div>
+                  </div>
+                  <div className="action-buttons-container">
+                    <button
+                      className="action-btn action-btn--edit"
+                      title="Chỉnh sửa"
+                      onClick={() => handleEditDependent(dep)}
+                    >
+                      <FiEdit2 />
+                    </button>
+                    <button
+                      className="action-btn action-btn--delete"
+                      title="Xóa"
+                      onClick={() => handleDeleteDependent(dep)}
+                    >
+                      <FiTrash2 />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* Dependent Form Modal */}
+      <Modal
+        isOpen={isDependentFormModalOpen}
+        onClose={() => {
+          setIsDependentFormModalOpen(false);
+          setSelectedDependent(null);
+        }}
+        title={selectedDependent ? 'Chỉnh Sửa Người Phụ Thuộc' : 'Thêm Người Phụ Thuộc Mới'}
+        size="md"
+      >
+        {selectedEmployee && (
+          <DependentForm
+            dependent={selectedDependent || undefined}
+            empId={selectedEmployee.empId}
+            onSubmit={handleDependentSubmit}
+            onCancel={() => {
+              setIsDependentFormModalOpen(false);
+              setSelectedDependent(null);
+            }}
+            loading={formLoading}
+          />
+        )}
+      </Modal>
+
+      {/* Dependent Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isDependentDeleteDialogOpen}
+        onClose={() => {
+          setIsDependentDeleteDialogOpen(false);
+          setSelectedDependent(null);
+        }}
+        onConfirm={handleDependentDeleteConfirm}
+        title="Xác Nhận Xóa"
+        message={`Bạn có chắc chắn muốn xóa người phụ thuộc "${selectedDependent?.fullName}"? Hành động này không thể hoàn tác.`}
+        confirmText="Xóa"
+        cancelText="Hủy"
+        type="danger"
+      />
 
       {/* Delete Confirm Dialog */}
       <ConfirmDialog

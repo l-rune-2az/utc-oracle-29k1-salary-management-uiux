@@ -5,6 +5,7 @@ import { Reward } from '@/types/models';
 import { OracleService } from '@/services/oracleService';
 import { serverConfig } from '@/config/serverConfig';
 import { isOracleConfigured } from '@/lib/oracle';
+import { SQL_QUERIES } from '@/constants/sqlQueries';
 
 const shouldUseOracle = () => !serverConfig.useMockData && isOracleConfigured();
 
@@ -30,21 +31,7 @@ export async function GET() {
   try {
     if (shouldUseOracle()) {
       const rewards = await OracleService.select<Reward>(
-        `SELECT
-            r.ID AS "rewardId",
-            'RW-' || NVL(TO_CHAR(r.REWARD_DATE, 'YYYYMMDD'), '00000000') || '-' ||
-              SUBSTR(r.ID, 1, 6) AS "rewardCode",
-            COALESCE(e.CODE, r.EMP_ID) AS "empId",
-            COALESCE(d.CODE, r.DEPT_ID) AS "deptId",
-            r.REWARD_TYPE AS "rewardType",
-            r.REWARD_DATE AS "rewardDate",
-            r.AMOUNT AS "amount",
-            r.DESCRIPTION AS "description",
-            r.APPROVED_BY AS "approvedBy"
-         FROM REWARD r
-         LEFT JOIN EMPLOYEE e ON e.ID = r.EMP_ID
-         LEFT JOIN DEPARTMENT d ON d.ID = r.DEPT_ID
-         ORDER BY r.REWARD_DATE DESC NULLS LAST`,
+        SQL_QUERIES.REWARD.SELECT_ALL,
       );
       return NextResponse.json(rewards);
     }
@@ -87,13 +74,7 @@ export async function POST(request: NextRequest) {
 
     if (shouldUseOracle()) {
       await OracleService.insert(
-        `INSERT INTO REWARD (
-            ID, EMP_ID, DEPT_ID, REWARD_TYPE, REWARD_DATE,
-            AMOUNT, DESCRIPTION, APPROVED_BY, CREATED_BY, CREATED_AT
-         ) VALUES (
-            :id, :empId, :deptId, :rewardType, :rewardDate,
-            :amount, :description, :approvedBy, 'system', SYSTIMESTAMP
-         )`,
+        SQL_QUERIES.REWARD.INSERT,
         {
           id: newReward.rewardId,
           empId: newReward.empId ?? null,
@@ -114,6 +95,111 @@ export async function POST(request: NextRequest) {
     console.error('Lỗi khi tạo thưởng mới', error);
     return NextResponse.json(
       { error: 'Lỗi khi tạo thưởng mới' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const payload: Reward = await request.json();
+    if (!payload.rewardId || !payload.amount) {
+      return NextResponse.json(
+        { error: 'Thiếu ID hoặc số tiền thưởng' },
+        { status: 400 },
+      );
+    }
+
+    const updatedReward: Reward = {
+      rewardId: payload.rewardId,
+      empId: payload.empId,
+      deptId: payload.deptId,
+      rewardType: payload.rewardType,
+      rewardDate: payload.rewardDate,
+      amount: payload.amount,
+      description: payload.description,
+      approvedBy: payload.approvedBy,
+    };
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.update(
+        SQL_QUERIES.REWARD.UPDATE,
+        {
+          id: updatedReward.rewardId,
+          empId: updatedReward.empId ?? null,
+          deptId: updatedReward.deptId ?? null,
+          rewardType: updatedReward.rewardType ?? null,
+          rewardDate: updatedReward.rewardDate ? new Date(updatedReward.rewardDate) : null,
+          amount: updatedReward.amount,
+          description: updatedReward.description ?? null,
+          approvedBy: updatedReward.approvedBy ?? null,
+        },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để cập nhật' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockRewards.findIndex(
+        (reward) => reward.rewardId === updatedReward.rewardId,
+      );
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để cập nhật' },
+          { status: 404 },
+        );
+      }
+      mockRewards[index] = updatedReward;
+    }
+
+    return NextResponse.json(updatedReward);
+  } catch (error) {
+    console.error('Lỗi khi cập nhật thưởng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi cập nhật thưởng' },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { rewardId } = await request.json();
+    if (!rewardId) {
+      return NextResponse.json({ error: 'Thiếu ID thưởng' }, { status: 400 });
+    }
+
+    if (shouldUseOracle()) {
+      const affected = await OracleService.delete(
+        SQL_QUERIES.REWARD.DELETE,
+        { id: rewardId },
+      );
+
+      if (affected === 0) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để xóa' },
+          { status: 404 },
+        );
+      }
+    } else {
+      const index = mockRewards.findIndex((reward) => reward.rewardId === rewardId);
+      if (index === -1) {
+        return NextResponse.json(
+          { error: 'Không tìm thấy thưởng để xóa' },
+          { status: 404 },
+        );
+      }
+      mockRewards.splice(index, 1);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Lỗi khi xóa thưởng', error);
+    return NextResponse.json(
+      { error: 'Lỗi khi xóa thưởng' },
       { status: 500 },
     );
   }
