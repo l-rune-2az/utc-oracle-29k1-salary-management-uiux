@@ -8,7 +8,7 @@ import DataTable, { Column } from '@/components/DataTable';
 import SearchFilter from '@/components/SearchFilter';
 import Modal from '@/components/Modal';
 
-type ReportType = 'salary' | 'attendance' | 'payment';
+type ReportType = 'salary' | 'attendance';
 
 interface ReportData {
   [key: string]: any;
@@ -18,9 +18,14 @@ export default function ReportsPage() {
   const [reportType, setReportType] = useState<ReportType>('salary');
   const [reportData, setReportData] = useState<ReportData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({
-    yearNum: new Date().getFullYear(),
-    monthNum: new Date().getMonth() + 1,
+  const [filters, setFilters] = useState<{
+    yearNum: number | null;
+    monthNum: number | null;
+    empCode: string;
+    deptId: string;
+  }>({
+    yearNum: null,
+    monthNum: null,
     empCode: '',
     deptId: '',
   });
@@ -43,7 +48,7 @@ export default function ReportsPage() {
 
       const response = await fetch(`/api/reports?${params}`);
       if (!response.ok) throw new Error('Lỗi khi tải báo cáo');
-      
+
       const data = await response.json();
       setReportData(data);
     } catch (error) {
@@ -87,11 +92,13 @@ export default function ReportsPage() {
     { key: 'rewardAmount', label: 'Thưởng', align: 'right', render: (v) => formatCurrency(v) },
     { key: 'penaltyAmount', label: 'Phạt', align: 'right', render: (v) => formatCurrency(v) },
     { key: 'otSalary', label: 'Lương OT', align: 'right', render: (v) => formatCurrency(v) },
-    { key: 'totalSalary', label: 'Tổng Lương', align: 'right', render: (v) => (
-      <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--primary-600)' }}>
-        {formatCurrency(v)}
-      </span>
-    )},
+    {
+      key: 'totalSalary', label: 'Tổng Lương', align: 'right', render: (v) => (
+        <span style={{ fontWeight: 'var(--font-weight-bold)', color: 'var(--primary-600)' }}>
+          {formatCurrency(v)}
+        </span>
+      )
+    },
     { key: 'status', label: 'Trạng Thái', align: 'center', render: (v) => v === 'PAID' ? 'Đã thanh toán' : 'Chưa thanh toán' },
   ];
 
@@ -106,16 +113,7 @@ export default function ReportsPage() {
     { key: 'totalDays', label: 'Tổng Ngày', align: 'center', render: (v) => `${v} ngày` },
   ];
 
-  const getPaymentColumns = (): Column<ReportData>[] => [
-    { key: 'empId', label: 'Mã NV', width: '100px' },
-    { key: 'empName', label: 'Họ Tên' },
-    { key: 'deptName', label: 'Phòng Ban' },
-    { key: 'monthYear', label: 'Tháng/Năm', align: 'center', render: (_, row) => `${row.monthNum}/${row.yearNum}` },
-    { key: 'totalSalary', label: 'Số Tiền', align: 'right', render: (v) => formatCurrency(v) },
-    { key: 'paymentDate', label: 'Ngày Thanh Toán', render: (v) => formatDate(v) },
-    { key: 'approvedBy', label: 'Người Phê Duyệt' },
-    { key: 'note', label: 'Ghi Chú' },
-  ];
+
 
   const getColumns = (): Column<ReportData>[] => {
     switch (reportType) {
@@ -123,8 +121,6 @@ export default function ReportsPage() {
         return getSalaryColumns();
       case 'attendance':
         return getAttendanceColumns();
-      case 'payment':
-        return getPaymentColumns();
       default:
         return [];
     }
@@ -136,8 +132,6 @@ export default function ReportsPage() {
         return 'Báo Cáo Lương';
       case 'attendance':
         return 'Báo Cáo Chấm Công';
-      case 'payment':
-        return 'Báo Cáo Thanh Toán';
       default:
         return 'Báo Cáo';
     }
@@ -176,7 +170,7 @@ export default function ReportsPage() {
         marginBottom: 'var(--space-6)',
         borderBottom: '2px solid var(--gray-200)',
       }}>
-        {(['salary', 'attendance', 'payment'] as ReportType[]).map((type) => (
+        {(['salary', 'attendance'] as ReportType[]).map((type) => (
           <button
             key={type}
             onClick={() => setReportType(type)}
@@ -193,7 +187,6 @@ export default function ReportsPage() {
           >
             {type === 'salary' && 'Báo Cáo Lương'}
             {type === 'attendance' && 'Báo Cáo Chấm Công'}
-            {type === 'payment' && 'Báo Cáo Thanh Toán'}
           </button>
         ))}
       </div>
@@ -222,8 +215,8 @@ export default function ReportsPage() {
             <label className="form-label">Năm</label>
             <select
               className="form-input"
-              value={filters.yearNum}
-              onChange={(e) => setFilters({ ...filters, yearNum: Number(e.target.value) })}
+              value={filters.yearNum ?? ''}
+              onChange={(e) => setFilters({ ...filters, yearNum: e.target.value ? Number(e.target.value) : null })}
             >
               <option value="">Tất cả</option>
               {years.map((year) => (
@@ -236,8 +229,8 @@ export default function ReportsPage() {
             <label className="form-label">Tháng</label>
             <select
               className="form-input"
-              value={filters.monthNum}
-              onChange={(e) => setFilters({ ...filters, monthNum: e.target.value ? Number(e.target.value) : undefined })}
+              value={filters.monthNum ?? ''}
+              onChange={(e) => setFilters({ ...filters, monthNum: e.target.value ? Number(e.target.value) : null })}
             >
               <option value="">Tất cả</option>
               {months.map((month) => (
@@ -278,8 +271,8 @@ export default function ReportsPage() {
               className="btn btn-secondary"
               onClick={() => {
                 setFilters({
-                  yearNum: new Date().getFullYear(),
-                  monthNum: new Date().getMonth() + 1,
+                  yearNum: null,
+                  monthNum: null,
                   empCode: '',
                   deptId: '',
                 });

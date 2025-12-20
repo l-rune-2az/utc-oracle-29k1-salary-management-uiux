@@ -57,9 +57,10 @@ export async function POST(request: NextRequest) {
         {
           id: newAllowance.allowanceId,
           empCode: newAllowance.empId,
-          allowanceType: newAllowance.allowanceType ?? null,
+          allowanceId: null,
           amount: newAllowance.amount,
-          description: newAllowance.description ?? null,
+          effectiveFrom: newAllowance.startDate ? new Date(newAllowance.startDate) : new Date(),
+          effectiveTo: newAllowance.endDate ? new Date(newAllowance.endDate) : null,
         },
       );
     } else {
@@ -102,9 +103,9 @@ export async function PUT(request: NextRequest) {
         SQL_QUERIES.EMPLOYEE_ALLOWANCE.UPDATE,
         {
           id: updatedAllowance.allowanceId,
-          allowanceType: updatedAllowance.allowanceType ?? null,
           amount: updatedAllowance.amount,
-          description: updatedAllowance.description ?? null,
+          effectiveFrom: updatedAllowance.startDate ? new Date(updatedAllowance.startDate) : new Date(),
+          effectiveTo: updatedAllowance.endDate ? new Date(updatedAllowance.endDate) : null,
         },
       );
 

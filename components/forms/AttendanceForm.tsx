@@ -51,7 +51,7 @@ export default function AttendanceForm({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.empId?.trim()) {
       newErrors.empId = 'Mã nhân viên là bắt buộc';
     }

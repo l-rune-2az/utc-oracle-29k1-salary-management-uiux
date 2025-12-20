@@ -232,12 +232,12 @@ export const SQL_QUERIES = {
       SELECT
           ea.ID AS "allowanceId",
           e.CODE AS "empId",
-          ea.ALLOWANCE_TYPE AS "allowanceType",
+          NULL AS "allowanceType",
           ea.AMOUNT AS "amount",
-          NULL AS "startDate",
-          NULL AS "endDate",
-          ea.DESCRIPTION AS "description",
-          'ACTIVE' AS "status"
+          ea.EFFECTIVE_FROM AS "startDate",
+          ea.EFFECTIVE_TO AS "endDate",
+          NULL AS "description",
+          NULL AS "status"
        FROM EMPLOYEE_ALLOWANCE ea
        INNER JOIN EMPLOYEE e ON ea.EMP_ID = e.ID
        ORDER BY ea.AMOUNT DESC
@@ -245,21 +245,25 @@ export const SQL_QUERIES = {
 
     INSERT: `
       INSERT INTO EMPLOYEE_ALLOWANCE (
-          ID, EMP_ID, ALLOWANCE_TYPE, AMOUNT,
-          DESCRIPTION, CREATED_BY, CREATED_AT
+          ID, EMP_ID, ALLOWANCE_ID, AMOUNT,
+          EFFECTIVE_FROM, EFFECTIVE_TO,
+          CREATED_BY, CREATED_AT
        ) VALUES (
           :id,
           (SELECT ID FROM EMPLOYEE WHERE CODE = :empCode),
-          :allowanceType, :amount,
-          :description, 'system', SYSTIMESTAMP
+          :allowanceId,
+          :amount,
+          :effectiveFrom,
+          :effectiveTo,
+          'system', SYSTIMESTAMP
        )
     `,
 
     UPDATE: `
       UPDATE EMPLOYEE_ALLOWANCE
-       SET ALLOWANCE_TYPE = :allowanceType,
-           AMOUNT = :amount,
-           DESCRIPTION = :description,
+       SET AMOUNT = :amount,
+           EFFECTIVE_FROM = :effectiveFrom,
+           EFFECTIVE_TO = :effectiveTo,
            UPDATED_BY = 'system',
            UPDATED_AT = SYSTIMESTAMP
        WHERE ID = :id
@@ -269,6 +273,8 @@ export const SQL_QUERIES = {
       DELETE FROM EMPLOYEE_ALLOWANCE WHERE ID = :id
     `,
   },
+
+
 
   // ============================================
   // ATTENDANCE - Chấm Công
@@ -523,7 +529,7 @@ export const SQL_QUERIES = {
           FROM EMPLOYEE_ALLOWANCE ea
           WHERE ea.EMP_ID = e.ID
             AND ea.STATUS = 'ACTIVE'
-            AND (:yearNum * 12 + :monthNum) >= (EXTRACT(YEAR FROM ea.START_DATE) * 12 + EXTRACT(MONTH FROM ea.START_DATE))
+            AND (:yearNum * 12 + :monthNum) >= (EXTRACT(YEAR FROM ea.EFFECTIVE_FROM) * 12 + EXTRACT(MONTH FROM ea.EFFECTIVE_FROM))
         ), 0) AS "allowance",
         -- Reward Amount
         NVL((

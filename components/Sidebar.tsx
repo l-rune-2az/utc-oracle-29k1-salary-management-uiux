@@ -12,7 +12,6 @@ import {
   FiAward,
   FiAlertCircle,
   FiDollarSign,
-  FiCreditCard,
   FiSettings,
   FiChevronDown,
   FiChevronRight,
@@ -60,7 +59,6 @@ const menuGroups: MenuGroup[] = [
       { href: '/rewards', label: 'Thưởng', icon: FiAward },
       { href: '/penalties', label: 'Phạt', icon: FiAlertCircle },
       { href: '/payrolls', label: 'Bảng Lương', icon: FiDollarSign },
-      { href: '/payments', label: 'Phiếu Chi', icon: FiCreditCard },
     ],
   },
   {

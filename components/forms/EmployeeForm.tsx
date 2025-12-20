@@ -53,7 +53,7 @@ export default function EmployeeForm({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.empId?.trim()) {
       newErrors.empId = 'Mã nhân viên là bắt buộc';
     }

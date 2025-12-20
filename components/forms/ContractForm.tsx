@@ -49,7 +49,7 @@ export default function ContractForm({
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.contractId?.trim()) {
       newErrors.contractId = 'Mã hợp đồng là bắt buộc';
     }
