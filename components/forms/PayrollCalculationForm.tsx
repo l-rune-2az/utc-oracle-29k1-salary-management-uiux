@@ -101,10 +101,10 @@ export default function PayrollCalculationForm({
                     className="form-input"
                     value={formData.empId}
                     onChange={(e) => handleChange('empId', e.target.value)}
-                    placeholder="Để trống để tính cho tất cả nhân viên"
+                    placeholder="VD: NV001, NV002... (để trống tính cho tất cả)"
                 />
                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--gray-500)', marginTop: 'var(--space-1)' }}>
-                    Nếu để trống, hệ thống sẽ tính bảng lương cho tất cả nhân viên đang làm việc
+                    Nhập mã nhân viên (CODE) để tính lương cho 1 nhân viên cụ thể, hoặc để trống để tính cho tất cả nhân viên đang làm việc
                 </div>
             </div>
 

@@ -448,19 +448,20 @@ export const SQL_QUERIES = {
   PAYROLL: {
     SELECT_ALL: `
       SELECT
-          ID AS "payrollId",
-          EMP_ID AS "empId",
-          MONTH_NUM AS "monthNum",
-          YEAR_NUM AS "yearNum",
-          BASIC_SALARY AS "basicSalary",
-          ALLOWANCE AS "allowance",
-          REWARD_AMOUNT AS "rewardAmount",
-          PENALTY_AMOUNT AS "penaltyAmount",
-          OT_SALARY AS "otSalary",
-          TOTAL_SALARY AS "totalSalary",
-          STATUS AS "status"
-       FROM PAYROLL
-       ORDER BY YEAR_NUM DESC, MONTH_NUM DESC
+          p.ID AS "payrollId",
+          e.CODE AS "empId",
+          p.MONTH_NUM AS "monthNum",
+          p.YEAR_NUM AS "yearNum",
+          p.BASIC_SALARY AS "basicSalary",
+          p.ALLOWANCE AS "allowance",
+          p.REWARD_AMOUNT AS "rewardAmount",
+          p.PENALTY_AMOUNT AS "penaltyAmount",
+          p.OT_SALARY AS "otSalary",
+          p.TOTAL_SALARY AS "totalSalary",
+          p.STATUS AS "status"
+       FROM PAYROLL p
+       INNER JOIN EMPLOYEE e ON p.EMP_ID = e.ID
+       ORDER BY p.YEAR_NUM DESC, p.MONTH_NUM DESC
     `,
 
     INSERT_OR_UPDATE: `
@@ -507,64 +508,78 @@ export const SQL_QUERIES = {
 
     CALCULATE_FOR_EMPLOYEE: `
       SELECT
-        e.ID AS "empId",
-        e.CODE AS "empCode",
-        :monthNum AS "monthNum",
-        :yearNum AS "yearNum",
-        -- Basic Salary từ Contract
-        NVL((
-          SELECT c.BASE_SALARY * NVL(sf.VALUE, 1)
+      e.ID   AS "empId",
+      e.CODE AS "empCode",
+      :monthNum AS "monthNum",
+      :yearNum  AS "yearNum",
+
+      /* ===== BASIC SALARY ===== */
+      NVL((
+          SELECT
+              MAX(c.BASE_SALARY * NVL(sf.VALUE, 1))
           FROM CONTRACT c
-          LEFT JOIN SALARY_FACTOR_CONFIG sf ON c.FACTOR_ID = sf.ID
+          LEFT JOIN SALARY_FACTOR_CONFIG sf
+                ON sf.ID = c.FACTOR_ID
           WHERE c.EMP_ID = e.ID
             AND c.STATUS = 'ACTIVE'
-            AND (:yearNum * 12 + :monthNum) >= (EXTRACT(YEAR FROM c.START_DATE) * 12 + EXTRACT(MONTH FROM c.START_DATE))
-            AND ((:yearNum * 12 + :monthNum) <= (EXTRACT(YEAR FROM c.END_DATE) * 12 + EXTRACT(MONTH FROM c.END_DATE)) OR c.END_DATE IS NULL)
-          ORDER BY c.START_DATE DESC
-          FETCH FIRST 1 ROWS ONLY
-        ), 0) AS "basicSalary",
-        -- Allowance
-        NVL((
+            AND (:yearNum * 12 + :monthNum)
+                >= (EXTRACT(YEAR FROM c.START_DATE) * 12
+                  + EXTRACT(MONTH FROM c.START_DATE))
+            AND (
+                c.END_DATE IS NULL
+                OR (:yearNum * 12 + :monthNum)
+                    <= (EXTRACT(YEAR FROM c.END_DATE) * 12
+                      + EXTRACT(MONTH FROM c.END_DATE))
+            )
+      ), 0) AS "basicSalary",
+
+      /* ===== ALLOWANCE ===== */
+      NVL((
           SELECT SUM(ea.AMOUNT)
           FROM EMPLOYEE_ALLOWANCE ea
           WHERE ea.EMP_ID = e.ID
-            AND ea.STATUS = 'ACTIVE'
-            AND (:yearNum * 12 + :monthNum) >= (EXTRACT(YEAR FROM ea.EFFECTIVE_FROM) * 12 + EXTRACT(MONTH FROM ea.EFFECTIVE_FROM))
-        ), 0) AS "allowance",
-        -- Reward Amount
-        NVL((
+            AND (:yearNum * 12 + :monthNum)
+                >= (EXTRACT(YEAR FROM ea.EFFECTIVE_FROM) * 12
+                  + EXTRACT(MONTH FROM ea.EFFECTIVE_FROM))
+      ), 0) AS "allowance",
+
+      /* ===== REWARD ===== */
+      NVL((
           SELECT SUM(r.AMOUNT)
           FROM REWARD r
           WHERE (r.EMP_ID = e.ID OR r.DEPT_ID = e.DEPT_ID)
-            AND EXTRACT(YEAR FROM r.REWARD_DATE) = :yearNum
+            AND EXTRACT(YEAR  FROM r.REWARD_DATE) = :yearNum
             AND EXTRACT(MONTH FROM r.REWARD_DATE) = :monthNum
-        ), 0) AS "rewardAmount",
-        -- Penalty Amount
-        NVL((
+      ), 0) AS "rewardAmount",
+
+      /* ===== PENALTY ===== */
+      NVL((
           SELECT SUM(p.AMOUNT)
           FROM PENALTY p
           WHERE p.EMP_ID = e.ID
-            AND EXTRACT(YEAR FROM p.PENALTY_DATE) = :yearNum
+            AND EXTRACT(YEAR  FROM p.PENALTY_DATE) = :yearNum
             AND EXTRACT(MONTH FROM p.PENALTY_DATE) = :monthNum
-        ), 0) AS "penaltyAmount",
-        -- OT Salary từ Attendance
-        NVL((
-          SELECT SUM(a.OT_HOURS) * (
-            SELECT c.BASE_SALARY * NVL(sf.VALUE, 1) / 176
-            FROM CONTRACT c
-            LEFT JOIN SALARY_FACTOR_CONFIG sf ON c.FACTOR_ID = sf.ID
-            WHERE c.EMP_ID = e.ID
-              AND c.STATUS = 'ACTIVE'
-            ORDER BY c.START_DATE DESC
-            FETCH FIRST 1 ROWS ONLY
-          ) * 1.5
+      ), 0) AS "penaltyAmount",
+
+      /* ===== OT SALARY ===== */
+      NVL((
+          SELECT
+              SUM(a.OT_HOURS)
+              * 1.5
+              * MAX(c.BASE_SALARY * NVL(sf.VALUE, 1) / 176)
           FROM ATTENDANCE a
+          JOIN CONTRACT c
+            ON c.EMP_ID = e.ID
+          AND c.STATUS = 'ACTIVE'
+          LEFT JOIN SALARY_FACTOR_CONFIG sf
+                ON sf.ID = c.FACTOR_ID
           WHERE a.EMP_ID = e.ID
-            AND EXTRACT(YEAR FROM a.ATTENDANCE_DATE) = :yearNum
+            AND EXTRACT(YEAR  FROM a.ATTENDANCE_DATE) = :yearNum
             AND EXTRACT(MONTH FROM a.ATTENDANCE_DATE) = :monthNum
-        ), 0) AS "otSalary"
-      FROM EMPLOYEE e
-      WHERE e.STATUS = 'ACTIVE'
+      ), 0) AS "otSalary"
+
+  FROM EMPLOYEE e
+  WHERE e.STATUS = 'ACTIVE'
     `,
   },
 
